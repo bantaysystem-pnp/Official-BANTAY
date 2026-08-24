@@ -35,7 +35,7 @@ import PdfPreviewModal from "../modals/PdfPreviewModal";
 // ─── FEATURE FLAGS ────────────────────────────────────────────────────────────
 const SHOW_MONTHLY_DELTAS = false; // Set to false to hide all "vs last month" deltas
 const SHOW_BACKTEST_REPORT = true;
-const SHOW_UI_ALERT_BLINK = false; // Set to false to disable the red blink on "Under Investigation" when count >= 1
+const SHOW_UI_ALERT_BLINK = true; // Set to false to disable the red blink on "Under Investigation" when count >= 1
 
 // ─── DEFAULT DATE RANGE ────────────────────────────────────────────────────
 // Change this to "this_month" to switch the default range back — every

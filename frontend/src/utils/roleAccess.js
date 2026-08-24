@@ -16,9 +16,6 @@ export const roleAccess = {
     "case-management",
     "modus-management",
     "crime-mapping",
-    "patrol-dashboard",
-    "patrol-scheduling",
-    "after-patrol",
     "user-management",
     "audit-log",
     "profile-settings",
@@ -31,9 +28,6 @@ export const roleAccess = {
     "case-management",
     "modus-management",
     "crime-mapping",
-    "patrol-dashboard",
-    "patrol-scheduling",
-    "after-patrol",
     "audit-log",
     "profile-settings",
   ],
@@ -53,16 +47,8 @@ export const roleAccess = {
     "dashboard",
     "crime-mapping",
     "e-blotter",
-    "patrol-scheduling",
-    "profile-settings",
     "audit-log",
-    "after-patrol"
   ],
 
-  // ============================================
-  // BARANGAY ROLES
-  // ============================================
-  
-  "Brgy. Captain": ["dashboard", "crime-mapping", "brgy-report", "resident-management", "audit-log", "profile-settings"],
-  "Brgy. Official": ["dashboard", "crime-mapping", "brgy-report", "resident-management", "audit-log", "profile-settings"],
+
 };

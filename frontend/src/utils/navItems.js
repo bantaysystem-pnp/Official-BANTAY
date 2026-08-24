@@ -41,48 +41,7 @@ export const navItems = [
       },
     ],
   },
-  {
-    section: "Patrol Operations",
-    items: [
-      {
-        key: "patrol-dashboard",
-        label: "Patroller Dashboard",
-        path: "/patrol-dashboard",
-        icon: `<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>`,
-      },
-      {
-        key: "patrol-scheduling",
-        label: "Patrol Scheduling",
-        nonAdminLabel: "Patrol Assignment", 
-        path: "/patrol-scheduling",
-        icon: `<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>`,
-      },
-      {
-        key: "after-patrol",
-        label: "After Patrol",
-        path: "/after-patrol",
-        icon: `<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>`,
-      },
-    ],
-  },
-
-  {
-    section: "Barangay",
-    items: [
-      {
-        key: "brgy-report",
-        label: "Submit Report",
-        path: "/brgy-report",
-        icon: `<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14,2 14,8 20,8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/>`,
-      },
-      {
-        key: "resident-management",
-        label: "Residents",
-        path: "/resident-management",
-        icon: `<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="23" y1="21" x2="23" y2="19"/><line x1="19" y1="21" x2="19" y2="17"/><path d="M16 3.13a4 4 0 010 7.75"/>`,
-      },
-    ],
-  },
+  
   {
     section: "Users",
     items: [

@@ -13,7 +13,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 const BACOOR_CITY_CODE = "042103000";
 
 const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
-  const [step, setStep] = useState("select"); // 'select', 'pnp', 'barangay'
+  const [step, setStep] = useState("pnp"); // barangay/select removed — PNP only
   const [shouldScrollToError, setShouldScrollToError] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -572,7 +572,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
   };
 
   const handleClose = () => {
-    setStep("select");
+    setStep("pnp");
     resetForm();
     onClose();
   };
@@ -1211,81 +1211,11 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
           className={`aum-modal-container ${step === "select" ? "aum-modal-select" : "aum-modal-large"}`}
           ref={modalContentRef}
         >
-          {/* USER TYPE SELECTION */}
-          {step === "select" && (
-            <div className="aum-user-type-selection">
-              <h2 className="aum-selection-title">Select User Type</h2>
-              <p className="aum-selection-subtitle">
-                Choose the type of user you want to add
-              </p>
-              <div className="aum-user-type-cards">
-                <div
-                  className="aum-user-type-card"
-                  onClick={() => handleUserTypeSelect("pnp")}
-                >
-                  <div className="aum-user-type-icon">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="48"
-                      height="48"
-                      fill="none"
-                      stroke="var(--navy-primary)"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                    </svg>
-                  </div>
-                  <h4>PNP User</h4>
-                  <p>Add a police officer to the system</p>
-                </div>
-                <div
-                  className="aum-user-type-card"
-                  onClick={() => handleUserTypeSelect("barangay")}
-                >
-                  <div className="aum-user-type-icon">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="48"
-                      height="48"
-                      fill="none"
-                      stroke="var(--navy-primary)"
-                      strokeWidth="1.5"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                  </div>
-                  <h4>Barangay User</h4>
-                  <p>Add a barangay official to the system</p>
-                </div>
-              </div>
-              <div className="aum-modal-actions">
-                <button
-                  className="aum-btn aum-btn-secondary"
-                  onClick={handleClose}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* PNP USER FORM */}
           {step === "pnp" && (
             <>
               <div className="aum-modal-header">
                 <div className="aum-header-with-back">
-                  <button
-                    type="button"
-                    className="aum-back-button"
-                    onClick={handleBack}
-                  >
-                    ← Back
-                  </button>
                   <h2>Add PNP User</h2>
                   <button
                     type="button"

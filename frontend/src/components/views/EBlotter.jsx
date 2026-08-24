@@ -17,6 +17,9 @@ import PdfPreviewModal from "../modals/PdfPreviewModal";
 import ViewReferralModal from "../modals/ViewReferralModal";
 import { LIMITS } from "../../utils/attachmentLimits";
 
+// ─── FEATURE FLAGS ────────────────────────────────────────────────────────
+const SHOW_IMPORT_BUTTON = false; // Set to false to hide Import button + disable the import modal
+
 const OFFENSE_TO_CRIME_TYPE = {
   Murder: "MURDER",
   Homicide: "HOMICIDE",
@@ -192,7 +195,7 @@ const DeleteIcon = () => (
 
 function EBlotter() {
   const [showModal, setShowModal] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState(3);
   const [blotters, setBlotters] = useState([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -274,9 +277,9 @@ function EBlotter() {
   });
   const [complainants, setComplainants] = useState([
     {
-      first_name: "",
+      first_name: "Unknown",
       middle_name: "",
-      last_name: "",
+      last_name: "Unknown",
       qualifier: "",
       alias: "",
       gender: "Male",
@@ -1618,7 +1621,7 @@ function EBlotter() {
         setEditMode(false);
         setViewMode(false);
         setEditingBlotterId(blotterId);
-        setCurrentStep(1);
+        setCurrentStep(3);
         setShowModal(true);
         try {
           const attRes = await fetch(
@@ -2183,9 +2186,9 @@ function EBlotter() {
   const resetForm = () => {
     setComplainants([
       {
-        first_name: "",
+        first_name: "Unknown",
         middle_name: "",
-        last_name: "",
+        last_name: "Unknown",
         qualifier: "",
         alias: "",
         gender: "Male",
@@ -2315,41 +2318,6 @@ function EBlotter() {
     }
 
     const hasData =
-      complainants.some(
-        (c) =>
-          c.first_name ||
-          c.middle_name ||
-          c.last_name ||
-          c.contact_number ||
-          c.alias ||
-          c.qualifier ||
-          (c.region && c.region !== "NCR") ||
-          c.district_province ||
-          c.city_municipality ||
-          c.barangay ||
-          c.house_street,
-      ) ||
-      suspects.some(
-        (s) =>
-          s.first_name ||
-          s.middle_name ||
-          s.last_name ||
-          s.birthday ||
-          s.age ||
-          s.alias ||
-          s.qualifier ||
-          s.birth_place ||
-          s.relation_to_victim ||
-          s.height_cm ||
-          s.motive ||
-          (s.region && s.region !== "NCR") ||
-          s.district_province ||
-          s.city_municipality ||
-          s.barangay ||
-          s.house_street ||
-          s.location_if_arrested ||
-          s.educational_attainment,
-      ) ||
       (caseDetail.incident_type && caseDetail.incident_type !== "Theft") ||
       caseDetail.cop ||
       caseDetail.date_time_commission ||
@@ -2377,7 +2345,7 @@ function EBlotter() {
   const closeModal = () => {
     setShowModal(false);
     setShowConfirmClose(false);
-    setCurrentStep(1);
+    setCurrentStep(3);
     setFieldErrors({});
     setEditMode(false);
     setViewMode(false);
@@ -3021,28 +2989,30 @@ function EBlotter() {
             Export
           </button>
 
-          <button
-            className="eb-btn eb-btn-secondary"
-            onClick={() => setShowImport(true)}
-            style={{ display: "flex", alignItems: "center", gap: "8px" }}
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          {SHOW_IMPORT_BUTTON && (
+            <button
+              className="eb-btn eb-btn-secondary"
+              onClick={() => setShowImport(true)}
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
             >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="17 8 12 3 7 8" />
-              <line x1="12" y1="3" x2="12" y2="15" />
-            </svg>
-            Import
-          </button>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Import
+            </button>
+          )}
           <button
             className="eb-btn eb-btn-primary"
             onClick={() => setShowModal(true)}
@@ -3937,26 +3907,7 @@ function EBlotter() {
             ) : (
               // ========== EDIT/CREATE MODE - ORIGINAL FORM ==========
               <>
-                <div className="eb-step-indicator">
-                  <div
-                    className={`eb-step ${currentStep === 1 ? "active" : ""}`}
-                  >
-                    <div className="eb-step-number">1</div>
-                    <div className="eb-step-label">Persons Involved</div>
-                  </div>
-                  <div
-                    className={`eb-step ${currentStep === 2 ? "active" : ""}`}
-                  >
-                    <div className="eb-step-number">2</div>
-                    <div className="eb-step-label">Suspect</div>
-                  </div>
-                  <div
-                    className={`eb-step ${currentStep === 3 ? "active" : ""}`}
-                  >
-                    <div className="eb-step-number">3</div>
-                    <div className="eb-step-label">Case Detail & Offense</div>
-                  </div>
-                </div>
+
 
                 {currentStep === 1 && (
                   <div className="eb-step-content">
@@ -5834,7 +5785,7 @@ function EBlotter() {
 
                 {currentStep === 3 && (
                   <div className="eb-step-content">
-                    <h3 className="eb-section-title">3. Case Detail</h3>
+                    <h3 className="eb-section-title">Case Detail</h3>
                     <div className="eb-modal-form-grid">
                       {/* ── ROW 1: OFFENSE CLASSIFICATION ── */}
                       <div className="eb-modal-form-group">
@@ -8018,15 +7969,6 @@ function EBlotter() {
                 )}
 
                 <div className="eb-modal-footer">
-                  {!viewMode && currentStep > 1 && (
-                    <button
-                      type="button"
-                      className="eb-btn eb-btn-secondary"
-                      onClick={() => changeStep(-1)}
-                    >
-                      Previous
-                    </button>
-                  )}
                   {!viewMode && currentStep < totalSteps && (
                     <button
                       type="button"
@@ -8893,53 +8835,6 @@ function EBlotter() {
         >
           Reports
         </button>
-        {userRole !== "Investigator" && (
-          <button
-            className={`eb-report-tab ${activeReportTab === "referred" ? "active" : ""}`}
-            onClick={() => {
-              if (activeReportTab === "referred") return;
-              activeReportTabRef.current = "referred"; // ADD THIS
-              setBlotters([]);
-              setCurrentPage(1);
-              setActiveReportTab("referred");
-              fetchBlotters("referred");
-            }}
-          >
-            <span
-              style={{
-                position: "relative",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-              }}
-            >
-              Referred by:
-              {referredCount > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: "-8px",
-                    right: "-18px",
-                    backgroundColor: "#dc2626",
-                    color: "white",
-                    borderRadius: "50%",
-                    minWidth: "18px",
-                    height: "18px",
-                    fontSize: "10px",
-                    fontWeight: "800",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: "0 4px",
-                    lineHeight: 1,
-                  }}
-                >
-                  {referredCount}
-                </span>
-              )}
-            </span>
-          </button>
-        )}
       </div>
 
       <div className="eb-table-card">
@@ -9373,7 +9268,7 @@ function EBlotter() {
         </div>
       </div>
 
-      {showImport && (
+      {SHOW_IMPORT_BUTTON && showImport && (
         <ImportBlotterModal
           onClose={() => setShowImport(false)}
           onSuccess={() => {

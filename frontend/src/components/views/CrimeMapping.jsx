@@ -12,6 +12,10 @@ import LoadingModal from "../modals/LoadingModal";
 const API = `${import.meta.env.VITE_API_URL}/crime-map`;
 const getToken = () => localStorage.getItem("token");
 
+// ─── FEATURE FLAGS ────────────────────────────────────────────────────────
+// Set to false to hide the "Patrol" tab entirely and stop fetching/polling GPS
+const SHOW_PATROL_GPS = false;
+
 const INCIDENT_COLORS = {
   ROBBERY: "#ef4444",
   THEFT: "#f97316",
@@ -1081,7 +1085,7 @@ function CrimeMapping() {
   }, [appliedFilters]); // ← depends on appliedFilters directly
 
   const fetchOfficers = useCallback(async () => {
-    if (isBarangayUser || isInvestigator) return; // early exit still fine
+    if (!SHOW_PATROL_GPS || isBarangayUser || isInvestigator) return; // early exit still fine
 
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/gps/officers`, {
@@ -1096,6 +1100,8 @@ function CrimeMapping() {
   }, [isBarangayUser]);
 
   useEffect(() => {
+    if (!SHOW_PATROL_GPS) return;
+
     fetchOfficers();
 
     const startPoll = () => {
@@ -1437,7 +1443,7 @@ function CrimeMapping() {
     ...(!isBarangayUser
       ? [{ key: "at_risk", label: heatmapMode ? "Clusters" : "Incidence" }]
       : []),
-    ...(!isBarangayUser && !isInvestigator
+    ...(SHOW_PATROL_GPS && !isBarangayUser && !isInvestigator
       ? [{ key: "officers", label: "Patrol" }]
       : []),
   ];
@@ -1518,7 +1524,7 @@ function CrimeMapping() {
     if (isBarangayUser && activeTab === "at_risk") {
       setActiveTab("legend");
     }
-    if ((isBarangayUser || isInvestigator) && activeTab === "officers") {
+    if ((isBarangayUser || isInvestigator || !SHOW_PATROL_GPS) && activeTab === "officers") {
       setActiveTab("legend");
     }
   }, [isBarangayUser, isInvestigator, activeTab]);

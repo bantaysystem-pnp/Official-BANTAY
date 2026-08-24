@@ -511,22 +511,6 @@ const UserManagement = () => {
         </button>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="um-tabs">
-        <button
-          className={`um-tab ${activeTab === "police" ? "um-tab-active" : ""}`}
-          onClick={() => handleTabSwitch("police")}
-        >
-          Police Users
-        </button>
-        <button
-          className={`um-tab ${activeTab === "barangay" ? "um-tab-active" : ""}`}
-          onClick={() => handleTabSwitch("barangay")}
-        >
-          Barangay Users
-        </button>
-      </div>
-
       {/* Filter Bar */}
       <div className="um-filter-bar">
         <div className="um-filter-fields">

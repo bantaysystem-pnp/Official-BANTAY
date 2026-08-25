@@ -1,7 +1,7 @@
 // Ground truth: GeoJSON name_db values (47 official barangays post-2023 merger)
 export const CURRENT_BARANGAYS = [
   "ANIBAN I", "ANIBAN II", "BAYANAN", "DULONG BAYAN",
-  "HABAY I", "HABAY II", "KAINGIN (POB.)",
+  "HABAY I", "HABAY II", "POBLACION",
   "KAINGIN DIGMAN",
   "LIGAS I", "LIGAS II",
   "MABOLO", "MALIKSI I", "MALIKSI II",
@@ -16,7 +16,7 @@ export const CURRENT_BARANGAYS = [
   "REAL",
   "SALINAS I", "SALINAS II",
   "SAN NICOLAS I", "SAN NICOLAS II", "SAN NICOLAS III",
-  "SINEGUELASAN",
+  "SINBANALI",
   "TALABA I", "TALABA II", "TALABA III",
   "ZAPOTE I", "ZAPOTE II", "ZAPOTE III",
 ];
@@ -28,11 +28,13 @@ export const CURRENT_BARANGAYS = [
 // These are only useful for legacy Excel imports and old record resolution
 export const LEGACY_BARANGAY_OPTIONS = [
   // Completely different names
-  { label: "Alima (→ Sineguelasan)",        value: "SINEGUELASAN" },
-  { label: "Banalo (→ Sineguelasan)",       value: "SINEGUELASAN" },
-  { label: "Camposanto (→ Kaingin Pob.)",   value: "KAINGIN (POB.)" },
-  { label: "Daang Bukid (→ Kaingin Pob.)",  value: "KAINGIN (POB.)" },
-  { label: "Tabing Dagat (→ Kaingin Pob.)", value: "KAINGIN (POB.)" },
+  { label: "Alima (→ Sinbanali)",           value: "SINBANALI" },
+  { label: "Banalo (→ Sinbanali)",          value: "SINBANALI" },
+  { label: "Sineguelasan (→ Sinbanali)",    value: "SINBANALI" },
+  { label: "Camposanto (→ Poblacion)",      value: "POBLACION" },
+  { label: "Daang Bukid (→ Poblacion)",     value: "POBLACION" },
+  { label: "Tabing Dagat (→ Poblacion)",    value: "POBLACION" },
+  { label: "Kaingin Pob. (→ Poblacion)",    value: "POBLACION" },
   { label: "Kaingin (→ Kaingin Digman)",    value: "KAINGIN DIGMAN" },
   { label: "Digman (→ Kaingin Digman)",     value: "KAINGIN DIGMAN" },
   { label: "Panapaan (→ P.F. Espiritu I)",    value: "P.F. ESPIRITU I (PANAPAAN)" },

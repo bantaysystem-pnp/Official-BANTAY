@@ -4,6 +4,7 @@ const pool = require("../../../config/database");
 const {
   getRespondersForReferrals,
 } = require("../../notifications/notificationService");
+const { expandBarangays } = require("../../../shared/utils/barangays"); // ADD THIS
 
 class Blotter {
   // Generate blotter entry number
@@ -290,8 +291,8 @@ FROM blotter_entries WHERE is_deleted = false`;
       paramCount++;
     }
     if (filters.barangay) {
-      query += ` AND place_barangay = $${paramCount}`;
-      params.push(filters.barangay);
+      query += ` AND UPPER(TRIM(place_barangay)) = ANY($${paramCount}::text[])`;
+      params.push(expandBarangays([filters.barangay.toUpperCase()]));
       paramCount++;
     }
 

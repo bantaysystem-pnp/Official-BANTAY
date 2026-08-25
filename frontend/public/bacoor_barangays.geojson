@@ -1,3 +1,5 @@
+
+
 {
   "type": "FeatureCollection",
   "features": [
@@ -17281,7 +17283,7 @@
       "type": "Feature",
       "properties": {
         "name_kml": "Sinbanali",
-        "name_db": "SINEGUELASAN",
+        "name_db": "SINBANALI",
         "centroid_lat": 14.457802,
         "centroid_lng": 120.930139
       },
@@ -17613,7 +17615,7 @@
       "type": "Feature",
       "properties": {
         "name_kml": "Poblacion",
-        "name_db": "KAINGIN (POB.)",
+        "name_db": "POBLACION",
         "centroid_lat": 14.459068,
         "centroid_lng": 120.940177
       },

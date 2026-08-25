@@ -2,6 +2,8 @@
 
 const pool = require("../../../config/database");
 
+const { expandBarangays } = require("../../../shared/utils/barangays");
+
 const INDEX_CRIMES = [
   "MURDER",
   "HOMICIDE",
@@ -24,51 +26,8 @@ const DAYS_OF_WEEK = [
   "Saturday",
 ];
 
-// ─── BARANGAY ALIAS MAP ───────────────────────────────────────────────────────
-const BARANGAY_ALIASES = {
-  ALIMA: "SINEGUELASAN",
-  BANALO: "SINEGUELASAN",
-  CAMPOSANTO: "KAINGIN (POB.)",
-  "DAANG BUKID": "KAINGIN (POB.)",
-  "TABING DAGAT": "KAINGIN (POB.)",
-  KAINGIN: "KAINGIN DIGMAN",
-  DIGMAN: "KAINGIN DIGMAN",
-  PANAPAAN: "P.F. ESPIRITU I (PANAPAAN)",
-  "PANAPAAN 2": "P.F. ESPIRITU II",
-  "PANAPAAN 4": "P.F. ESPIRITU IV",
-  "PANAPAAN 5": "P.F. ESPIRITU V",
-  "PANAPAAN 6": "P.F. ESPIRITU VI",
-  "MABOLO 1": "MABOLO",
-  "MABOLO 2": "MABOLO",
-  "MABOLO 3": "MABOLO",
-  "ANIBAN 3": "ANIBAN I",
-  "ANIBAN 4": "ANIBAN II",
-  "ANIBAN 5": "ANIBAN I",
-  "MALIKSI 3": "MALIKSI II",
-  "MAMBOG 5": "MAMBOG II",
-  "NIOG 2": "NIOG",
-  "NIOG 3": "NIOG",
-  "REAL 2": "REAL",
-  "SALINAS 3": "SALINAS II",
-  "SALINAS 4": "SALINAS II",
-  "TALABA 4": "TALABA III",
-  "TALABA 7": "TALABA I",
-};
 
-const REVERSE_ALIASES = {};
-Object.entries(BARANGAY_ALIASES).forEach(([legacy, current]) => {
-  if (!REVERSE_ALIASES[current]) REVERSE_ALIASES[current] = [];
-  REVERSE_ALIASES[current].push(legacy);
-});
 
-const expandBarangays = (names) => {
-  const expanded = new Set(names);
-  names.forEach((name) => {
-    const aliases = REVERSE_ALIASES[name] || [];
-    aliases.forEach((alias) => expanded.add(alias));
-  });
-  return [...expanded];
-};
 
 // ─── SHARED WHERE BUILDER ─────────────────────────────────────────────────────
 const buildWhere = (query) => {

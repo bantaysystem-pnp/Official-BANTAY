@@ -1,3 +1,5 @@
+// frontend\src\components\views\CrimeMapping.jsx
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import Map, { Source, Layer, Marker, Popup } from "react-map-gl/mapbox";

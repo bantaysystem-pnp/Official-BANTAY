@@ -7,6 +7,8 @@ const fetch = (...args) =>
 
 const AI_SERVICE_URL = process.env.AI_SERVICE_URL || "http://localhost:8000";
 
+const { expandBarangays, normalizeBarangay } = require("../../../shared/utils/barangays");
+
 function getIncidenceThresholds(dateFrom, dateTo) {
   const days =
     Math.round((new Date(dateTo) - new Date(dateFrom)) / 86400000) + 1;
@@ -110,7 +112,7 @@ const getBoundaries = async (req, res) => {
 
     if (barangayList.length > 0) {
       crimeQuery += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-      params.push(barangayList);
+      params.push(expandBarangays(barangayList));
     }
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
@@ -120,7 +122,7 @@ const getBoundaries = async (req, res) => {
       // Only restrict if they have assigned barangays (ongoing schedule)
       if (assignedBarangays.length > 0) {
         crimeQuery += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-        params.push(assignedBarangays);
+        params.push(expandBarangays(assignedBarangays));
       }
       // If no assignedBarangays, don't add any filter - they see all data like admin
     }
@@ -141,12 +143,14 @@ const getBoundaries = async (req, res) => {
     }
 
     const crimeMap = {};
-    crimeResult.rows.forEach((r) => {
-      crimeMap[r.barangay] = parseInt(r.crime_count, 10);
-    });
+crimeResult.rows.forEach((r) => {
+  const current = normalizeBarangay(r.barangay);
+  crimeMap[current] = (crimeMap[current] || 0) + parseInt(r.crime_count, 10);
+});
 
-    const boundaries = barangayResult.rows.map((b) => {
-      const count = crimeMap[b.name_db.toUpperCase()] || 0;
+const boundaries = barangayResult.rows.map((b) => {
+  const key = normalizeBarangay(b.name_db);
+  const count = crimeMap[key] || 0;
       const { color, risk } = getIncidenceColor(
         count,
         date_from || "2000-01-01",
@@ -223,9 +227,9 @@ const getPins = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-      query += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-      params.push(barangayList);
-    }
+  query += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+  params.push(expandBarangays(barangayList));
+}
     if (req.query.modus) {
       query += ` AND EXISTS (
         SELECT 1 FROM crime_modus cm
@@ -262,10 +266,10 @@ const getPins = async (req, res) => {
       if (role_name === "Patrol") {
         const assignedBarangays = await getPatrolUserBarangays(user_id);
         // Only restrict if they have assigned barangays (ongoing schedule)
-        if (assignedBarangays.length > 0) {
-          query += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-          params.push(assignedBarangays);
-        }
+        if (barangayList.length > 0) {
+  query += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+  params.push(expandBarangays(barangayList));
+}
         // If no assignedBarangays, don't add any filter - they see all data like admin
       }
 
@@ -359,9 +363,9 @@ const getStatistics = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-      baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-      params.push(barangayList);
-    }
+  baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+  params.push(expandBarangays(barangayList));
+}
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
     const { role_name, user_id } = req.user || {};
@@ -436,19 +440,18 @@ const getStatistics = async (req, res) => {
       client.release();
     }
 
-    const incidenceWithLevel = incidenceBarangays.rows.map((row) => {
-      const count = parseInt(row.count, 10);
-      const { risk } = getIncidenceColor(
-        count,
-        date_from || "2000-01-01",
-        date_to || new Date().toISOString().slice(0, 10),
-      );
-      return {
-        barangay: row.barangay,
-        count,
-        risk,
-      };
-    });
+    const incidenceWithLevel = incidenceBarangays.rows.reduce((acc, row) => {
+  const current = normalizeBarangay(row.barangay);
+  const count = parseInt(row.count, 10);
+  const existing = acc.find(r => r.barangay === current);
+  if (existing) {
+    existing.count += count;
+  } else {
+    const { risk } = getIncidenceColor(count, date_from || "2000-01-01", date_to || new Date().toISOString().slice(0, 10));
+    acc.push({ barangay: current, count, risk });
+  }
+  return acc;
+}, []).sort((a, b) => b.count - a.count);
 
     res.json({
       success: true,
@@ -512,9 +515,9 @@ const getHeatmap = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-      baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-      params.push(barangayList);
-    }
+  baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+  params.push(expandBarangays(barangayList));
+}
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
     const { role_name, user_id } = req.user || {};

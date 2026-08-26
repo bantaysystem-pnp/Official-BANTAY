@@ -91,82 +91,39 @@ function useToasts() {
 function summarizeErrors(errors = [], duplicates = []) {
   const lines = [];
 
-  // group by message category
-  const missingId = errors.filter(
-    (e) => e.field === "BLOTTER_ENTRY_NUMBER" && e.message?.includes("Missing"),
-  );
-  const dupInFile = errors.filter(
-    (e) =>
-      e.field === "BLOTTER_ENTRY_NUMBER" && e.message?.includes("Duplicate"),
-  );
-  const badCrime = errors.filter((e) => e.field === "INCIDENT_TYPE");
-  const badBarangay = errors.filter(
-    (e) =>
-      e.field === "PLACE_BARANGAY" && e.message?.includes("not a recognized"),
-  );
-  const missingBrgy = errors.filter(
-    (e) => e.field === "PLACE_BARANGAY" && e.message?.includes("Missing"),
-  );
-  const badDate = errors.filter((e) => e.field === "DATE_COMMITTED");
+  const dupInFile = errors.filter((e) => e.field === "REPORT_NUMBER");
+  const badCrime = errors.filter((e) => e.field === "CRIME_TYPE");
+  const badBarangay = errors.filter((e) => e.field === "BARANGAY");
+  const badDate = errors.filter((e) => e.field === "DATE_COMMISSION");
   const other = errors.filter(
-    (e) =>
-      ![
-        "BLOTTER_ENTRY_NUMBER",
-        "INCIDENT_TYPE",
-        "PLACE_BARANGAY",
-        "DATE_COMMITTED",
-      ].includes(e.field),
+    (e) => !["REPORT_NUMBER", "CRIME_TYPE", "BARANGAY", "DATE_COMMISSION"].includes(e.field),
   );
 
   if (duplicates.length > 0) {
     const ids = duplicates
       .slice(0, 3)
-      .map((d) => d.blotter_entry_number)
+      .map((d) => d.report_number || `Row ${d.row}`)
       .join(", ");
     const more = duplicates.length > 3 ? ` +${duplicates.length - 3} more` : "";
     lines.push(`• ${duplicates.length} already in DB (skipped): ${ids}${more}`);
   }
   if (dupInFile.length > 0) {
-    const rows = dupInFile
-      .slice(0, 3)
-      .map((e) => `Row ${e.row}`)
-      .join(", ");
+    const rows = dupInFile.slice(0, 3).map((e) => `Row ${e.row}`).join(", ");
     const more = dupInFile.length > 3 ? ` +${dupInFile.length - 3} more` : "";
-    lines.push(
-      `• ${dupInFile.length} duplicate ID in file (skipped): ${rows}${more}`,
-    );
-  }
-  if (missingId.length > 0) {
-    lines.push(`• ${missingId.length} row(s) missing Report ID — skipped`);
+    lines.push(`• ${dupInFile.length} duplicate Report Number in file (skipped): ${rows}${more}`);
   }
   if (badCrime.length > 0) {
-    const rows = badCrime
-      .slice(0, 3)
-      .map((e) => `Row ${e.row}`)
-      .join(", ");
+    const rows = badCrime.slice(0, 3).map((e) => `Row ${e.row}`).join(", ");
     const more = badCrime.length > 3 ? ` +${badCrime.length - 3} more` : "";
-    lines.push(
-      `• ${badCrime.length} invalid/missing Crime Type — rejected: ${rows}${more}`,
-    );
+    lines.push(`• ${badCrime.length} invalid/missing Crime Type — rejected: ${rows}${more}`);
   }
   if (badBarangay.length > 0) {
-    const rows = badBarangay
-      .slice(0, 3)
-      .map((e) => `Row ${e.row}`)
-      .join(", ");
-    const more =
-      badBarangay.length > 3 ? ` +${badBarangay.length - 3} more` : "";
-    lines.push(
-      `• ${badBarangay.length} unrecognized Barangay — rejected: ${rows}${more}`,
-    );
-  }
-  if (missingBrgy.length > 0) {
-    lines.push(`• ${missingBrgy.length} row(s) missing Barangay — skipped`);
+    const rows = badBarangay.slice(0, 3).map((e) => `Row ${e.row}`).join(", ");
+    const more = badBarangay.length > 3 ? ` +${badBarangay.length - 3} more` : "";
+    lines.push(`• ${badBarangay.length} unrecognized Barangay — rejected: ${rows}${more}`);
   }
   if (badDate.length > 0) {
-    lines.push(
-      `• ${badDate.length} row(s) invalid/missing Date Committed — skipped`,
-    );
+    lines.push(`• ${badDate.length} row(s) invalid/missing Date — skipped`);
   }
   if (other.length > 0) {
     lines.push(`• ${other.length} other field error(s) — skipped`);
@@ -227,15 +184,14 @@ function ImportBlotterModal({ onClose, onSuccess }) {
       // Wrong headers check
       const firstRow = rows[0];
       const hasRequiredColumns =
-        "BLOTTER_ENTRY_NUMBER" in firstRow &&
-        "DATE_COMMITTED" in firstRow &&
-        "PLACE_BARANGAY" in firstRow &&
-        "INCIDENT_TYPE" in firstRow;
+        "DATE" in firstRow &&
+        "barangay" in firstRow &&
+        "offense" in firstRow;
 
       if (!hasRequiredColumns) {
         push("error", "Invalid template — wrong or missing column headers", [
-          "• Required columns not found: BLOTTER_ENTRY_NUMBER, DATE_COMMITTED, PLACE_BARANGAY, INCIDENT_TYPE",
-          "• Please use the official CIRAS import file.",
+          "• Required columns not found: DATE, barangay, offense",
+          "• Please use the official import template.",
         ]);
         return;
       }
@@ -530,33 +486,64 @@ function ImportBlotterModal({ onClose, onSuccess }) {
                       </div>
                     </div>
 
-                    {result.errors?.length > 0 && (
-                      <div className="im-error-table-wrap">
-                        <table className="im-error-table">
-                          <thead>
-                            <tr>
-                              <th>Row</th>
-                              <th>Field</th>
-                              <th>Reason</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {result.errors.slice(0, 10).map((e, i) => (
-                              <tr key={i}>
-                                <td>{e.row}</td>
-                                <td>{e.field}</td>
-                                <td>{e.message || e.value}</td>
+                    {result.duplicates?.length > 0 && (
+                      <>
+                        <p className="im-section-label">
+                          Duplicates skipped ({result.duplicates.length})
+                        </p>
+                        <div
+                          className="im-error-table-wrap"
+                          style={{ maxHeight: "220px", overflowY: "auto" }}
+                        >
+                          <table className="im-error-table">
+                            <thead>
+                              <tr>
+                                <th>Row</th>
+                                <th>Report Number</th>
                               </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {result.errors.length > 10 && (
-                          <p className="im-more-errors">
-                            +{result.errors.length - 10} more — download CSV to
-                            see all
-                          </p>
-                        )}
-                      </div>
+                            </thead>
+                            <tbody>
+                              {result.duplicates.map((d, i) => (
+                                <tr key={i}>
+                                  <td>{d.row}</td>
+                                  <td>{d.report_number || "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    )}
+
+                    {result.errors?.length > 0 && (
+                      <>
+                        <p className="im-section-label">
+                          Errors ({result.errors.length})
+                        </p>
+                        <div
+                          className="im-error-table-wrap"
+                          style={{ maxHeight: "320px", overflowY: "auto" }}
+                        >
+                          <table className="im-error-table">
+                            <thead>
+                              <tr>
+                                <th>Row</th>
+                                <th>Field</th>
+                                <th>Reason</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {result.errors.map((e, i) => (
+                                <tr key={i}>
+                                  <td>{e.row}</td>
+                                  <td>{e.field}</td>
+                                  <td>{e.message || e.value}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
                     )}
                   </div>
                 )}

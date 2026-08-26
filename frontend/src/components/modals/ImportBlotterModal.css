@@ -3,6 +3,14 @@
   background: rgba(0,0,0,0.5);
   display: flex; align-items: center; justify-content: center;
 }
+.im-section-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 16px 0 6px;
+}
 /* UPDATED */
 .im-modal {
   background: white; border-radius: 12px;

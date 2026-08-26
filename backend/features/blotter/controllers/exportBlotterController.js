@@ -156,7 +156,7 @@ const buildSummaryTable = (records) => {
   // Count by crime type
   const byCrime = {};
   records.forEach((r) => {
-    const ct = r.incident_type || r.crime_offense || "Unknown";
+    const ct = r.crime_type || "Unknown";
     byCrime[ct] = (byCrime[ct] || 0) + 1;
   });
 
@@ -188,7 +188,7 @@ const buildSummaryTable = (records) => {
 const buildCrimeBreakdownTable = (records) => {
   const byCrime = {};
   records.forEach((r) => {
-    const ct = r.incident_type || r.crime_offense || "Unknown";
+    const ct = r.crime_type || "Unknown";
     if (!byCrime[ct]) byCrime[ct] = { total: 0, cleared: 0, solved: 0, ui: 0 };
     byCrime[ct].total++;
     const s = (r.status || r.case_status || "").toLowerCase();
@@ -313,8 +313,8 @@ const buildRecordsTable = (records) => {
         return new TableRow({
           children: [
             smD(i + 1,                                        COL[0], { center: true, alt: i % 2 === 1 }),
-            smD(r.blotter_entry_number || "",                 COL[1], { alt: i % 2 === 1 }),
-            smD(r.incident_type || "",                        COL[2], { alt: i % 2 === 1 }),
+            smD(r.report_number || "",                        COL[1], { alt: i % 2 === 1 }),
+            smD(r.crime_type || "",                            COL[2], { alt: i % 2 === 1 }),
             smD(r.place_barangay || "",                       COL[3], { alt: i % 2 === 1 }),
             smD(fmtDateTime(r.date_time_reported) || r.date || "", COL[4], { alt: i % 2 === 1 }),
             smD(fmtDateTime(r.date_time_commission) || "",    COL[5], { alt: i % 2 === 1 }),

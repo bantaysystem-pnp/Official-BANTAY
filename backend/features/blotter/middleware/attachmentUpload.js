@@ -1,34 +1,34 @@
-const multer = require("multer");
+// const multer = require("multer");
 
-const attachmentUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 180 * 1024 * 1024 },
- fileFilter: (req, file, cb) => {
-  console.log("Uploaded MIME:", file.mimetype);
+// const attachmentUpload = multer({
+//   storage: multer.memoryStorage(),
+//   limits: { fileSize: 180 * 1024 * 1024 },
+//  fileFilter: (req, file, cb) => {
+//   console.log("Uploaded MIME:", file.mimetype);
 
-  const allowedImages = [
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/webp",
-    "image/heic",
-    "image/heif",
-  ];
+//   const allowedImages = [
+//     "image/jpeg",
+//     "image/jpg",
+//     "image/png",
+//     "image/webp",
+//     "image/heic",
+//     "image/heif",
+//   ];
 
-  const allowedVideos = [
-    "video/mp4",
-    "video/webm",
-    "video/quicktime",
-  ];
+//   const allowedVideos = [
+//     "video/mp4",
+//     "video/webm",
+//     "video/quicktime",
+//   ];
 
-  const allowed = [...allowedImages, ...allowedVideos];
+//   const allowed = [...allowedImages, ...allowedVideos];
 
-  if (allowed.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`Invalid file type: ${file.mimetype}`), false);
-  }
-}
-});
+//   if (allowed.includes(file.mimetype)) {
+//     cb(null, true);
+//   } else {
+//     cb(new Error(`Invalid file type: ${file.mimetype}`), false);
+//   }
+// }
+// });
 
-module.exports = attachmentUpload;
+// module.exports = attachmentUpload;

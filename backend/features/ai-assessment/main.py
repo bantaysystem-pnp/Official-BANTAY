@@ -35,36 +35,119 @@ INDEX_CRIME_MAP = {
     "CARNAPPING - MV":       "CARNAPPING - MV",
 }
 
+# ─── BARANGAY REFERENCE DATA ────────────────────────────────────────────────
+# MANUALLY MIRRORED from backend/shared/utils/barangays.js — the two services
+# are deployed independently and do not share a filesystem, so this list must
+# be kept in sync by hand whenever barangays.js is updated.
+VALID_BARANGAYS = [
+    "ANIBAN I", "ANIBAN II", "BAYANAN", "DULONG BAYAN", "HABAY I", "HABAY II",
+    "KAINGIN DIGMAN", "LIGAS I", "LIGAS II", "MABOLO", "MALIKSI I", "MALIKSI II",
+    "MAMBOG I", "MAMBOG II", "MAMBOG III", "MAMBOG IV", "MOLINO I", "MOLINO II",
+    "MOLINO III", "MOLINO IV", "MOLINO V", "MOLINO VI", "MOLINO VII", "NIOG",
+    "P.F. ESPIRITU I (PANAPAAN)", "P.F. ESPIRITU II", "P.F. ESPIRITU III",
+    "P.F. ESPIRITU IV", "P.F. ESPIRITU V", "P.F. ESPIRITU VI", "POBLACION",
+    "QUEENS ROW CENTRAL", "QUEENS ROW EAST", "QUEENS ROW WEST", "REAL",
+    "SALINAS I", "SALINAS II", "SAN NICOLAS I", "SAN NICOLAS II",
+    "SAN NICOLAS III", "SINBANALI", "TALABA I", "TALABA II", "TALABA III",
+    "ZAPOTE I", "ZAPOTE II", "ZAPOTE III",
+]
+
 BARANGAY_ALIASES = {
-    "ALIMA":          "SINBANALI",
-    "BANALO":         "SINBANALI",
-    "SINEGUELASAN":   "SINBANALI",
-    "CAMPOSANTO":     "POBLACION",
-    "DAANG BUKID":    "POBLACION",
-    "TABING DAGAT":   "POBLACION",
-    "KAINGIN (POB.)": "POBLACION",
-    "KAINGIN":        "KAINGIN DIGMAN",
-    "DIGMAN":         "KAINGIN DIGMAN",
-    "PANAPAAN":       "P.F. ESPIRITU I (PANAPAAN)",
-    "PANAPAAN 2":     "P.F. ESPIRITU II",
-    "PANAPAAN 4":     "P.F. ESPIRITU IV",
-    "PANAPAAN 5":     "P.F. ESPIRITU V",
-    "PANAPAAN 6":     "P.F. ESPIRITU VI",
-    "MABOLO 1":       "MABOLO",
-    "MABOLO 2":       "MABOLO",
-    "MABOLO 3":       "MABOLO",
-    "ANIBAN 3":       "ANIBAN I",
-    "ANIBAN 4":       "ANIBAN II",
-    "ANIBAN 5":       "ANIBAN I",
-    "MALIKSI 3":      "MALIKSI II",
-    "MAMBOG 5":       "MAMBOG II",
-    "NIOG 2":         "NIOG",
-    "NIOG 3":         "NIOG",
-    "REAL 2":         "REAL",
-    "SALINAS 3":      "SALINAS II",
-    "SALINAS 4":      "SALINAS II",
-    "TALABA 4":       "TALABA III",
-    "TALABA 7":       "TALABA I",
+    "ALIMA":                        "SINBANALI",
+    "BANALO":                       "SINBANALI",
+    "SINEGUELASAN":                 "SINBANALI",
+    "CAMPOSANTO":                   "POBLACION",
+    "DAANG BUKID":                  "POBLACION",
+    "TABING DAGAT":                 "POBLACION",
+    "KAINGIN (POB.)":               "POBLACION",
+    "DIGMAN":                       "KAINGIN DIGMAN",
+    "KAINGIN":                      "KAINGIN DIGMAN",
+    "PANAPAAN":                     "P.F. ESPIRITU I (PANAPAAN)",
+    "PANAPAAN 1":                   "P.F. ESPIRITU I (PANAPAAN)",
+    "PANAPAAN 2":                   "P.F. ESPIRITU II",
+    "PANAPAAN 3":                   "P.F. ESPIRITU II",
+    "PANAPAAN 4":                   "P.F. ESPIRITU IV",
+    "PANAPAAN 5":                   "P.F. ESPIRITU V",
+    "PANAPAAN 6":                   "P.F. ESPIRITU VI",
+    "PANAPAAN I":                   "P.F. ESPIRITU I (PANAPAAN)",
+    "PANAPAAN II":                  "P.F. ESPIRITU II",
+    "PANAPAAN III":                 "P.F. ESPIRITU II",
+    "PANAPAAN IV":                  "P.F. ESPIRITU IV",
+    "PANAPAAN V":                   "P.F. ESPIRITU V",
+    "PANAPAAN VI":                  "P.F. ESPIRITU VI",
+    "P.F. ESPIRITU 1 (PANAPAAN)":   "P.F. ESPIRITU I (PANAPAAN)",
+    "P.F. ESPIRITU 2":              "P.F. ESPIRITU II",
+    "P.F. ESPIRITU 3":              "P.F. ESPIRITU III",
+    "P.F. ESPIRITU 4":              "P.F. ESPIRITU IV",
+    "P.F. ESPIRITU 5":              "P.F. ESPIRITU V",
+    "P.F. ESPIRITU 6":              "P.F. ESPIRITU VI",
+    "ANIBAN 1":                     "ANIBAN I",
+    "ANIBAN 2":                     "ANIBAN II",
+    "ANIBAN 3":                     "ANIBAN I",
+    "ANIBAN 4":                     "ANIBAN II",
+    "ANIBAN 5":                     "ANIBAN I",
+    "HABAY 1":                      "HABAY I",
+    "HABAY 2":                      "HABAY II",
+    "LIGAS 1":                      "LIGAS I",
+    "LIGAS 2":                      "LIGAS II",
+    "MABOLO 1":                     "MABOLO",
+    "MABOLO 2":                     "MABOLO",
+    "MABOLO 3":                     "MABOLO",
+    "MABOLO I":                     "MABOLO",
+    "MABOLO II":                    "MABOLO",
+    "MABOLO III":                   "MABOLO",
+    "MALIKSI 1":                    "MALIKSI I",
+    "MALIKSI 2":                    "MALIKSI II",
+    "MALIKSI 3":                    "MALIKSI II",
+    "MALIKSI III":                  "MALIKSI II",
+    "MAMBOG 1":                     "MAMBOG I",
+    "MAMBOG 2":                     "MAMBOG II",
+    "MAMBOG 3":                     "MAMBOG III",
+    "MAMBOG 4":                     "MAMBOG IV",
+    "MAMBOG 5":                     "MAMBOG II",
+    "MAMBOG V":                     "MAMBOG II",
+    "MOLINO 1":                     "MOLINO I",
+    "MOLINO 2":                     "MOLINO II",
+    "MOLINO 3":                     "MOLINO III",
+    "MOLINO 4":                     "MOLINO IV",
+    "MOLINO 5":                     "MOLINO V",
+    "MOLINO 6":                     "MOLINO VI",
+    "MOLINO 7":                     "MOLINO VII",
+    "NIOG 1":                       "NIOG",
+    "NIOG 2":                       "NIOG",
+    "NIOG 3":                       "NIOG",
+    "NIOG I":                       "NIOG",
+    "NIOG II":                      "NIOG",
+    "NIOG III":                     "NIOG",
+    "REAL 1":                       "REAL",
+    "REAL 2":                       "REAL",
+    "REAL I":                       "REAL",
+    "REAL II":                      "REAL",
+    "SALINAS 1":                    "SALINAS I",
+    "SALINAS 2":                    "SALINAS II",
+    "SALINAS 3":                    "SALINAS II",
+    "SALINAS 4":                    "SALINAS II",
+    "SALINAS III":                  "SALINAS II",
+    "SALINAS IV":                   "SALINAS II",
+    "SAN NICOLAS 1":                "SAN NICOLAS I",
+    "SAN NICOLAS 2":                "SAN NICOLAS II",
+    "SAN NICOLAS 3":                "SAN NICOLAS III",
+    "TALABA 1":                     "TALABA I",
+    "TALABA 2":                     "TALABA II",
+    "TALABA 3":                     "TALABA III",
+    "TALABA 4":                     "TALABA III",
+    "TALABA 5":                     "TALABA III",
+    "TALABA 6":                     "TALABA III",
+    "TALABA 7":                     "TALABA I",
+    "TALABA IV":                    "TALABA III",
+    "TALABA V":                     "TALABA III",
+    "TALABA VI":                    "TALABA III",
+    "TALABA VII":                   "TALABA I",
+    "ZAPOTE 1":                     "ZAPOTE I",
+    "ZAPOTE 2":                     "ZAPOTE II",
+    "ZAPOTE 3":                     "ZAPOTE III",
+    "ZAPOTE 4":                     "ZAPOTE II",
+    "ZAPOTE IV":                    "ZAPOTE II",
 }
 
 PLACE_TYPE_GROUPS = {
@@ -245,34 +328,38 @@ def get_incidents(
 
     sql = """
         SELECT
-            UPPER(TRIM(incident_type))                            AS incident_type,
-            date_time_commission,
-            status,
-            lat,
-            lng,
-            COALESCE(NULLIF(TRIM(modus), ''), 'Unknown')          AS modus,
-            COALESCE(NULLIF(TRIM(type_of_place), ''), 'Unknown')  AS type_of_place,
-            UPPER(TRIM(place_barangay))                           AS place_barangay
-        FROM blotter_analytics_view
-        WHERE date_time_commission >= %s
-        AND date_time_commission < (%s::date + interval '1 day')
-        AND LOWER(TRIM(status)) IN (
+            UPPER(TRIM(cr.crime_type))                               AS incident_type,
+            cr.date_time_commission,
+            c.status,
+            cr.lat,
+            cr.lng,
+            COALESCE(NULLIF(TRIM(cmr.modus_name), ''), 'Unknown')     AS modus,
+            COALESCE(NULLIF(TRIM(cr.type_of_place), ''), 'Unknown')   AS type_of_place,
+            UPPER(TRIM(cr.place_barangay))                            AS place_barangay
+        FROM crime_reports_v2 cr
+        LEFT JOIN cases_v2 c ON c.report_id = cr.report_id
+        LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
+        WHERE cr.is_deleted = false
+        AND cr.date_time_commission >= %s
+        AND cr.date_time_commission < (%s::date + interval '1 day')
+        AND LOWER(TRIM(c.status)) IN (
             'cleared','cce','solved','cse',
             'under investigation','ui',
-            'for investigation','active','ongoing'
+            'for investigation','active','ongoing',
+            'referred'
         )
 """
     params: list[Any] = [date_from, date_to]
 
     if expanded_barangays:
-        sql += " AND UPPER(TRIM(place_barangay)) = ANY(%s)"
+        sql += " AND UPPER(TRIM(cr.place_barangay)) = ANY(%s)"
         params.append(expanded_barangays)
 
     if normalized_crimes:
-        sql += " AND UPPER(TRIM(incident_type)) = ANY(%s)"
+        sql += " AND UPPER(TRIM(cr.crime_type)) = ANY(%s)"
         params.append(normalized_crimes)
 
-    sql += " ORDER BY date_time_commission ASC"
+    sql += " ORDER BY cr.date_time_commission ASC"
 
     with get_db_connection() as conn:
         df = pd.read_sql_query(
@@ -303,24 +390,25 @@ def get_historical_weekly(
 
     sql = """
         SELECT
-            DATE_TRUNC('week', date_time_commission)::date AS week_start,
-            UPPER(TRIM(incident_type))                     AS incident_type,
-            COUNT(*)                                       AS count
-        FROM blotter_analytics_view
-        WHERE date_time_commission < (%s::date + interval '1 day')
+            DATE_TRUNC('week', cr.date_time_commission)::date AS week_start,
+            UPPER(TRIM(cr.crime_type))                         AS incident_type,
+            COUNT(*)                                           AS count
+        FROM crime_reports_v2 cr
+        WHERE cr.is_deleted = false
+        AND cr.date_time_commission < (%s::date + interval '1 day')
     """
     params: list[Any] = [up_to_date]
 
     if expanded_barangays:
-        sql += " AND UPPER(TRIM(place_barangay)) = ANY(%s)"
+        sql += " AND UPPER(TRIM(cr.place_barangay)) = ANY(%s)"
         params.append(expanded_barangays)
 
     if normalized_crimes:
-        sql += " AND UPPER(TRIM(incident_type)) = ANY(%s)"
+        sql += " AND UPPER(TRIM(cr.crime_type)) = ANY(%s)"
         params.append(normalized_crimes)
 
     sql += """
-        GROUP BY week_start, UPPER(TRIM(incident_type))
+        GROUP BY week_start, UPPER(TRIM(cr.crime_type))
         ORDER BY week_start ASC, incident_type ASC
     """
 

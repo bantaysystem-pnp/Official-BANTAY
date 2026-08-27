@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+import time
 from typing import Any
 
 import numpy as np
@@ -384,6 +385,7 @@ def get_historical_weekly(
     barangays:   list[str],
     up_to_date:  str,
     crime_types: list[str] | None = None,
+    lookback_days: int = 730,
 ) -> pd.DataFrame:
     expanded_barangays = expand_barangays(barangays)
     normalized_crimes  = normalize_crime_types(crime_types or [])
@@ -396,8 +398,9 @@ def get_historical_weekly(
         FROM crime_reports_v2 cr
         WHERE cr.is_deleted = false
         AND cr.date_time_commission < (%s::date + interval '1 day')
+        AND cr.date_time_commission >= (%s::date - (%s || ' days')::interval)
     """
-    params: list[Any] = [up_to_date]
+    params: list[Any] = [up_to_date, up_to_date, lookback_days]
 
     if expanded_barangays:
         sql += " AND UPPER(TRIM(cr.place_barangay)) = ANY(%s)"
@@ -1381,24 +1384,30 @@ def is_significant_ecp(crime_key, per_crime_sba, crime_stat, total_weeks):
 @app.post("/analyze")
 def analyze(payload: AnalyzeRequest):
     try:
+        t0 = time.time()
         incidents_df = get_incidents(
             barangays=payload.barangays,
             date_from=payload.date_from,
             date_to=payload.date_to,
             crime_types=payload.crime_types,
         )
+        print(f"[TIMING] get_incidents: {time.time() - t0:.2f}s")
 
+        t1 = time.time()
         historical_weekly_df = get_historical_weekly(
             barangays=payload.barangays,
             up_to_date=payload.date_to,
             crime_types=payload.crime_types,
         )
+        print(f"[TIMING] get_historical_weekly: {time.time() - t1:.2f}s")
 
+        t2 = time.time()
         stats_result       = compute_basic_stats(incidents_df)
         temporal_result    = compute_temporal(incidents_df)
         eps                = get_dbscan_eps(payload.date_from, payload.date_to)
         clusters_result    = compute_clusters(incidents_df, eps=eps)
         diagnostics_result = compute_diagnostics(incidents_df)
+        print(f"[TIMING] stats/temporal/clusters/diagnostics: {time.time() - t2:.2f}s")
 
         barangay_summary: list[dict[str, Any]] = []
         if not incidents_df.empty and "place_barangay" in incidents_df.columns:
@@ -1425,11 +1434,13 @@ def analyze(payload: AnalyzeRequest):
         else:
             historical_with_combined = historical_weekly_df
 
+        t3 = time.time()
         sba_result = compute_sba(
             historical_with_combined,
             payload.date_from,
             payload.date_to,
         )
+        print(f"[TIMING] compute_sba (includes backtest): {time.time() - t3:.2f}s")
 
         overall_forecast = next(
             (x for x in sba_result["per_crime"] if x["crime"] == "ALL_CRIMES"),
@@ -1498,6 +1509,7 @@ def analyze(payload: AnalyzeRequest):
             "diagnostics":            diagnostics_result,
         }
 
+        print(f"[TIMING] TOTAL /analyze: {time.time() - t0:.2f}s")
         return sanitize_for_json(response)
 
     except Exception as exc:

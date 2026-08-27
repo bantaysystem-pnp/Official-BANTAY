@@ -27,7 +27,7 @@ const analyzeWithPython = async ({
   };
 
   const response = await axios.post(`${PYTHON_SERVICE_URL}/analyze`, payload, {
-    timeout: 60000,
+    timeout: 180000,
     headers: {
       "Content-Type": "application/json",
     },

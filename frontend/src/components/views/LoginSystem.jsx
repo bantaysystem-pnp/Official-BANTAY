@@ -713,7 +713,7 @@ const LoginSystem = () => {
           {/* Login View */}
           {currentView === "login" && (
             <div>
-              <h2 className="form-title">Secure Access</h2>
+              <h2 className="form-title">Official System</h2>
               <p className="form-subtitle">
                 Enter your authorized credentials to access the system
               </p>
@@ -764,7 +764,9 @@ const LoginSystem = () => {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="eye-toggle"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showPassword ? (
                       <Eye size={20} />
@@ -1156,7 +1158,9 @@ const LoginSystem = () => {
                     type="button"
                     onClick={() => setShowNewPassword(!showNewPassword)}
                     className="eye-toggle"
-                    aria-label={showNewPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showNewPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showNewPassword ? (
                       <Eye size={20} />
@@ -1187,7 +1191,9 @@ const LoginSystem = () => {
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="eye-toggle"
-                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
                   >
                     {showConfirmPassword ? (
                       <Eye size={20} />

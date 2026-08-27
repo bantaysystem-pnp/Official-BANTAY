@@ -40,6 +40,13 @@ function getHighIncidenceMinCount(dateFrom, dateTo) {
 }
 
 // ============================================================
+// SHARED: base FROM/JOIN used across every query in this file
+// ============================================================
+const FROM_JOIN = `FROM crime_reports_v2 cr
+  LEFT JOIN cases_v2 c ON c.report_id = cr.report_id
+  LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id`;
+
+// ============================================================
 // HELPER: Get assigned barangays for a patrol user's ongoing schedule
 // ============================================================
 const getPatrolUserBarangays = async (userId) => {
@@ -73,21 +80,21 @@ const getBoundaries = async (req, res) => {
 
     let crimeQuery = `
       SELECT 
-        UPPER(TRIM(place_barangay)) as barangay,
+        UPPER(TRIM(cr.place_barangay)) as barangay,
         COUNT(*) as crime_count
-      FROM blotter_analytics_view
-      WHERE lat IS NOT NULL
-        AND LOWER(TRIM(status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')
+      ${FROM_JOIN}
+      WHERE cr.is_deleted = false
+        AND cr.lat IS NOT NULL
     `;
     const params = [];
     let p = 1;
 
     if (date_from) {
-      crimeQuery += ` AND date_time_commission >= $${p++}`;
+      crimeQuery += ` AND cr.date_time_commission >= $${p++}`;
       params.push(date_from);
     }
     if (date_to) {
-      crimeQuery += ` AND date_time_commission < ($${p++}::date + interval '1 day')`;
+      crimeQuery += ` AND cr.date_time_commission < ($${p++}::date + interval '1 day')`;
       params.push(date_to);
     }
 
@@ -99,7 +106,7 @@ const getBoundaries = async (req, res) => {
       : [];
 
     if (incidentTypes.length) {
-      crimeQuery += ` AND UPPER(TRIM(incident_type)) = ANY($${p++}::text[])`;
+      crimeQuery += ` AND UPPER(TRIM(cr.crime_type)) = ANY($${p++}::text[])`;
       params.push(incidentTypes);
     }
 
@@ -111,7 +118,7 @@ const getBoundaries = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-      crimeQuery += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+      crimeQuery += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
       params.push(expandBarangays(barangayList));
     }
 
@@ -121,13 +128,13 @@ const getBoundaries = async (req, res) => {
       const assignedBarangays = await getPatrolUserBarangays(user_id);
       // Only restrict if they have assigned barangays (ongoing schedule)
       if (assignedBarangays.length > 0) {
-        crimeQuery += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+        crimeQuery += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
         params.push(expandBarangays(assignedBarangays));
       }
       // If no assignedBarangays, don't add any filter - they see all data like admin
     }
 
-    crimeQuery += ` GROUP BY UPPER(TRIM(place_barangay))`;
+    crimeQuery += ` GROUP BY UPPER(TRIM(cr.place_barangay))`;
 
     const client = await pool.connect();
     let crimeResult, barangayResult;
@@ -143,14 +150,14 @@ const getBoundaries = async (req, res) => {
     }
 
     const crimeMap = {};
-crimeResult.rows.forEach((r) => {
-  const current = normalizeBarangay(r.barangay);
-  crimeMap[current] = (crimeMap[current] || 0) + parseInt(r.crime_count, 10);
-});
+    crimeResult.rows.forEach((r) => {
+      const current = normalizeBarangay(r.barangay);
+      crimeMap[current] = (crimeMap[current] || 0) + parseInt(r.crime_count, 10);
+    });
 
-const boundaries = barangayResult.rows.map((b) => {
-  const key = normalizeBarangay(b.name_db);
-  const count = crimeMap[key] || 0;
+    const boundaries = barangayResult.rows.map((b) => {
+      const key = normalizeBarangay(b.name_db);
+      const count = crimeMap[key] || 0;
       const { color, risk } = getIncidenceColor(
         count,
         date_from || "2000-01-01",
@@ -177,35 +184,35 @@ const boundaries = barangayResult.rows.map((b) => {
 
 const getPins = async (req, res) => {
   try {
-    const { date_from, date_to, incident_type, barangay } = req.query;
+    const { date_from, date_to, incident_type } = req.query;
 
     let query = `
       SELECT 
-        blotter_id,
-        blotter_entry_number,
-        incident_type,
-        place_barangay,
-        place_street,
-        type_of_place,
-        modus,
-        status,
-        date_time_commission,
-        lat,
-        lng
-      FROM blotter_analytics_view
-      WHERE lat IS NOT NULL 
-        AND lng IS NOT NULL
-        AND LOWER(TRIM(status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')
+        cr.report_id AS blotter_id,
+        cr.report_number AS blotter_entry_number,
+        cr.crime_type AS incident_type,
+        cr.place_barangay,
+        NULL AS place_street,
+        cr.type_of_place,
+        cmr.modus_name AS modus,
+        c.status,
+        cr.date_time_commission,
+        cr.lat,
+        cr.lng
+      ${FROM_JOIN}
+      WHERE cr.is_deleted = false
+        AND cr.lat IS NOT NULL 
+        AND cr.lng IS NOT NULL
     `;
     const params = [];
     let p = 1;
 
     if (date_from) {
-      query += ` AND date_time_commission >= $${p++}`;
+      query += ` AND cr.date_time_commission >= $${p++}`;
       params.push(date_from);
     }
     if (date_to) {
-      query += ` AND date_time_commission < ($${p++}::date + interval '1 day')`;
+      query += ` AND cr.date_time_commission < ($${p++}::date + interval '1 day')`;
       params.push(date_to);
     }
     if (incident_type) {
@@ -215,7 +222,7 @@ const getPins = async (req, res) => {
         .map((t) => t.trim().toUpperCase())
         .filter(Boolean);
       if (types.length > 0) {
-        query += ` AND UPPER(TRIM(incident_type)) = ANY($${p++}::text[])`;
+        query += ` AND UPPER(TRIM(cr.crime_type)) = ANY($${p++}::text[])`;
         params.push(types);
       }
     }
@@ -227,24 +234,19 @@ const getPins = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-  query += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-  params.push(expandBarangays(barangayList));
-}
+      query += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
+      params.push(expandBarangays(barangayList));
+    }
     if (req.query.modus) {
-      query += ` AND EXISTS (
-        SELECT 1 FROM crime_modus cm
-        JOIN crime_modus_reference cmr ON cm.modus_reference_id = cmr.id
-        WHERE cm.blotter_id = blotter_analytics_view.blotter_id
-        AND UPPER(cmr.modus_name) = UPPER($${p++})
-      )`;
+      query += ` AND UPPER(cmr.modus_name) = UPPER($${p++})`;
       params.push(req.query.modus);
     }
     if (req.query.hour !== undefined && req.query.hour !== "") {
-      query += ` AND EXTRACT(HOUR FROM date_time_commission) = $${p++}`;
+      query += ` AND EXTRACT(HOUR FROM cr.date_time_commission) = $${p++}`;
       params.push(parseInt(req.query.hour, 10));
     }
     if (req.query.day) {
-      query += ` AND TRIM(TO_CHAR(date_time_commission, 'Day')) = $${p++}`;
+      query += ` AND TRIM(TO_CHAR(cr.date_time_commission, 'Day')) = $${p++}`;
       params.push(req.query.day);
     }
 
@@ -258,7 +260,7 @@ const getPins = async (req, res) => {
           [user_id],
         );
         if (bdRes.rows.length > 0) {
-          query += ` AND UPPER(TRIM(place_barangay)) = UPPER($${p++})`;
+          query += ` AND UPPER(TRIM(cr.place_barangay)) = UPPER($${p++})`;
           params.push(bdRes.rows[0].barangay_code);
         }
       }
@@ -266,14 +268,14 @@ const getPins = async (req, res) => {
       if (role_name === "Patrol") {
         const assignedBarangays = await getPatrolUserBarangays(user_id);
         // Only restrict if they have assigned barangays (ongoing schedule)
-        if (barangayList.length > 0) {
-  query += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-  params.push(expandBarangays(barangayList));
-}
+        if (assignedBarangays.length > 0) {
+          query += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
+          params.push(expandBarangays(assignedBarangays));
+        }
         // If no assignedBarangays, don't add any filter - they see all data like admin
       }
 
-      query += ` ORDER BY date_time_commission DESC`;
+      query += ` ORDER BY cr.date_time_commission DESC`;
       result = await client.query(query, params);
     } finally {
       client.release();
@@ -331,16 +333,16 @@ const getStatistics = async (req, res) => {
   try {
     const { date_from, date_to, incident_type } = req.query;
 
-    let baseWhere = `WHERE lat IS NOT NULL AND LOWER(TRIM(status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')`;
+    let baseWhere = `WHERE cr.is_deleted = false AND cr.lat IS NOT NULL`;
     const params = [];
     let p = 1;
 
     if (date_from) {
-      baseWhere += ` AND date_time_commission >= $${p++}`;
+      baseWhere += ` AND cr.date_time_commission >= $${p++}`;
       params.push(date_from);
     }
     if (date_to) {
-      baseWhere += ` AND date_time_commission < ($${p++}::date + interval '1 day')`;
+      baseWhere += ` AND cr.date_time_commission < ($${p++}::date + interval '1 day')`;
       params.push(date_to);
     }
     if (incident_type) {
@@ -350,7 +352,7 @@ const getStatistics = async (req, res) => {
         .map((t) => t.trim().toUpperCase())
         .filter(Boolean);
       if (types.length > 0) {
-        baseWhere += ` AND UPPER(TRIM(incident_type)) = ANY($${p++}::text[])`;
+        baseWhere += ` AND UPPER(TRIM(cr.crime_type)) = ANY($${p++}::text[])`;
         params.push(types);
       }
     }
@@ -363,9 +365,9 @@ const getStatistics = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-  baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-  params.push(expandBarangays(barangayList));
-}
+      baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
+      params.push(expandBarangays(barangayList));
+    }
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
     const { role_name, user_id } = req.user || {};
@@ -373,7 +375,7 @@ const getStatistics = async (req, res) => {
       const assignedBarangays = await getPatrolUserBarangays(user_id);
       // Only restrict if they have assigned barangays (ongoing schedule)
       if (assignedBarangays.length > 0) {
-        baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+        baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
         params.push(assignedBarangays);
       }
       // If no assignedBarangays, don't add any filter - they see all data like admin
@@ -405,35 +407,35 @@ const getStatistics = async (req, res) => {
         totalBlotters,
       ] = await Promise.all([
         client.query(
-          `SELECT COUNT(*) FROM blotter_analytics_view ${baseWhere}`,
+          `SELECT COUNT(*) ${FROM_JOIN} ${baseWhere}`,
           params,
         ),
         client.query(
-          `SELECT incident_type, COUNT(*) as count FROM blotter_analytics_view ${baseWhere} GROUP BY incident_type ORDER BY count DESC`,
+          `SELECT cr.crime_type as incident_type, COUNT(*) as count ${FROM_JOIN} ${baseWhere} GROUP BY cr.crime_type ORDER BY count DESC`,
           params,
         ),
         client.query(
-          `SELECT UPPER(TRIM(place_barangay)) as barangay, COUNT(*) as count
-           FROM blotter_analytics_view ${baseWhere}
-           GROUP BY UPPER(TRIM(place_barangay))
+          `SELECT UPPER(TRIM(cr.place_barangay)) as barangay, COUNT(*) as count
+           ${FROM_JOIN} ${baseWhere}
+           GROUP BY UPPER(TRIM(cr.place_barangay))
            HAVING COUNT(*) >= 1
            ORDER BY count DESC, barangay ASC`,
           params,
         ),
         client.query(
-          `SELECT UPPER(TRIM(place_barangay)) as barangay, COUNT(*) as count
-           FROM blotter_analytics_view ${baseWhere}
-           GROUP BY UPPER(TRIM(place_barangay))
+          `SELECT UPPER(TRIM(cr.place_barangay)) as barangay, COUNT(*) as count
+           ${FROM_JOIN} ${baseWhere}
+           GROUP BY UPPER(TRIM(cr.place_barangay))
            HAVING COUNT(*) >= $${params.length + 1}::int
            ORDER BY count DESC, barangay ASC`,
           [...params, highIncidenceMin],
         ),
         client.query(
-          `SELECT blotter_entry_number, incident_type, place_barangay, date_time_commission FROM blotter_analytics_view ${baseWhere} ORDER BY date_time_commission DESC LIMIT 5`,
+          `SELECT cr.report_number as blotter_entry_number, cr.crime_type as incident_type, cr.place_barangay, cr.date_time_commission ${FROM_JOIN} ${baseWhere} ORDER BY cr.date_time_commission DESC LIMIT 5`,
           params,
         ),
         client.query(
-          `SELECT COUNT(*) FROM blotter_analytics_view WHERE LOWER(TRIM(status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')`,
+          `SELECT COUNT(*) FROM crime_reports_v2 WHERE is_deleted = false`,
         ),
       ]);
     } finally {
@@ -441,17 +443,17 @@ const getStatistics = async (req, res) => {
     }
 
     const incidenceWithLevel = incidenceBarangays.rows.reduce((acc, row) => {
-  const current = normalizeBarangay(row.barangay);
-  const count = parseInt(row.count, 10);
-  const existing = acc.find(r => r.barangay === current);
-  if (existing) {
-    existing.count += count;
-  } else {
-    const { risk } = getIncidenceColor(count, date_from || "2000-01-01", date_to || new Date().toISOString().slice(0, 10));
-    acc.push({ barangay: current, count, risk });
-  }
-  return acc;
-}, []).sort((a, b) => b.count - a.count);
+      const current = normalizeBarangay(row.barangay);
+      const count = parseInt(row.count, 10);
+      const existing = acc.find((r) => r.barangay === current);
+      if (existing) {
+        existing.count += count;
+      } else {
+        const { risk } = getIncidenceColor(count, date_from || "2000-01-01", date_to || new Date().toISOString().slice(0, 10));
+        acc.push({ barangay: current, count, risk });
+      }
+      return acc;
+    }, []).sort((a, b) => b.count - a.count);
 
     res.json({
       success: true,
@@ -479,19 +481,19 @@ const getHeatmap = async (req, res) => {
     const { date_from, date_to, incident_type } = req.query;
 
     let baseWhere = `
-      WHERE lat IS NOT NULL
-        AND lng IS NOT NULL
-        AND LOWER(TRIM(status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')
+      WHERE cr.is_deleted = false
+        AND cr.lat IS NOT NULL
+        AND cr.lng IS NOT NULL
     `;
     const params = [];
     let p = 1;
 
     if (date_from) {
-      baseWhere += ` AND date_time_commission >= $${p++}`;
+      baseWhere += ` AND cr.date_time_commission >= $${p++}`;
       params.push(date_from);
     }
     if (date_to) {
-      baseWhere += ` AND date_time_commission < ($${p++}::date + interval '1 day')`;
+      baseWhere += ` AND cr.date_time_commission < ($${p++}::date + interval '1 day')`;
       params.push(date_to);
     }
 
@@ -503,7 +505,7 @@ const getHeatmap = async (req, res) => {
       : [];
 
     if (incidentTypesList.length > 0) {
-      baseWhere += ` AND UPPER(TRIM(incident_type)) = ANY($${p++}::text[])`;
+      baseWhere += ` AND UPPER(TRIM(cr.crime_type)) = ANY($${p++}::text[])`;
       params.push(incidentTypesList);
     }
 
@@ -515,9 +517,9 @@ const getHeatmap = async (req, res) => {
       : [];
 
     if (barangayList.length > 0) {
-  baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
-  params.push(expandBarangays(barangayList));
-}
+      baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
+      params.push(expandBarangays(barangayList));
+    }
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
     const { role_name, user_id } = req.user || {};
@@ -525,7 +527,7 @@ const getHeatmap = async (req, res) => {
       const assignedBarangays = await getPatrolUserBarangays(user_id);
       // Only restrict if they have assigned barangays (ongoing schedule)
       if (assignedBarangays.length > 0) {
-        baseWhere += ` AND UPPER(TRIM(place_barangay)) = ANY($${p++}::text[])`;
+        baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
         params.push(assignedBarangays);
       }
       // If no assignedBarangays, don't add any filter - they see all data like admin
@@ -533,15 +535,15 @@ const getHeatmap = async (req, res) => {
 
     const pointsSQL = `
       SELECT
-        blotter_id,
-        UPPER(TRIM(incident_type)) AS incident_type,
-        UPPER(TRIM(place_barangay)) AS place_barangay,
-        date_time_commission,
-        lat::float,
-        lng::float
-      FROM blotter_analytics_view
+        cr.report_id AS blotter_id,
+        UPPER(TRIM(cr.crime_type)) AS incident_type,
+        UPPER(TRIM(cr.place_barangay)) AS place_barangay,
+        cr.date_time_commission,
+        cr.lat::float,
+        cr.lng::float
+      FROM crime_reports_v2 cr
       ${baseWhere}
-      ORDER BY date_time_commission DESC
+      ORDER BY cr.date_time_commission DESC
     `;
 
     const client = await pool.connect();
@@ -558,8 +560,8 @@ const getHeatmap = async (req, res) => {
           const brgyCode = bdRes.rows[0].barangay_code.toUpperCase();
           pointsResult = await client.query(
             pointsSQL.replace(
-              /UPPER\(TRIM\(place_barangay\)\) = ANY\(\$\d+::text\[\]\)/,
-              `UPPER(TRIM(place_barangay)) = UPPER($${params.length + 1})`,
+              /UPPER\(TRIM\(cr\.place_barangay\)\) = ANY\(\$\d+::text\[\]\)/,
+              `UPPER(TRIM(cr.place_barangay)) = UPPER($${params.length + 1})`,
             ),
             [...params, brgyCode],
           );

@@ -2069,7 +2069,6 @@ function CrimeMapping() {
 
                       {showMorePopup &&
                         [
-                          ["Street", selectedPin.place_street || "N/A"],
                           ["Modus", selectedPin.modus || "N/A"],
                           ["Time", selectedPin.time || "N/A"],
                           ["Day", selectedPin.day_of_week || "N/A"],

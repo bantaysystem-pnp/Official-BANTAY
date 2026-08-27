@@ -1719,9 +1719,8 @@ function EBlotter() {
                         letterSpacing: "0.5px",
                       }}
                     >
-                      #{" "}
-                      {blotters.find((b) => b.report_id === editingBlotterId)
-                        ?.report_number || editingBlotterId}
+                          #{" "}
+    {caseDetail.report_number || editingBlotterId}
                     </span>
                   )}
                   <p

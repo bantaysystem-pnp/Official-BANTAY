@@ -26,23 +26,31 @@ const DAYS_OF_WEEK = [
   "Saturday",
 ];
 
-
-
+// Expression used everywhere we need the weekday name — day_of_incident isn't
+// a stored column on crime_reports_v2 like it was on the old view, so we
+// derive it from date_time_commission instead.
+const DAY_OF_WEEK_EXPR = `TRIM(TO_CHAR(cr.date_time_commission, 'FMDay'))`;
 
 // ─── SHARED WHERE BUILDER ─────────────────────────────────────────────────────
+// Base FROM/JOIN every query shares: crime_reports_v2 is the source of truth,
+// cases_v2 carries status/priority (1:1 via report_id), is guaranteed to exist
+// per report since CrimeReportV2.create() inserts both in one transaction.
+const BASE_FROM = `FROM crime_reports_v2 cr
+     JOIN cases_v2 c ON c.report_id = cr.report_id`;
+
 const buildWhere = (query) => {
   const { date_from, date_to, crime_types, barangays } = query;
-  const conditions = [];
+  const conditions = ["cr.is_deleted = false"];
   const params = [];
   let p = 1;
 
   if (date_from) {
-    conditions.push(`be.date_time_commission >= $${p++}`);
+    conditions.push(`cr.date_time_commission >= $${p++}`);
     params.push(date_from);
   }
   if (date_to) {
     conditions.push(
-      `be.date_time_commission < ($${p++}::date + interval '1 day')`,
+      `cr.date_time_commission < ($${p++}::date + interval '1 day')`,
     );
     params.push(date_to);
   }
@@ -52,7 +60,7 @@ const buildWhere = (query) => {
       .map((t) => t.trim().toUpperCase())
       .filter(Boolean);
     if (types.length > 0) {
-      conditions.push(`UPPER(be.incident_type) = ANY($${p++}::text[])`);
+      conditions.push(`UPPER(cr.crime_type) = ANY($${p++}::text[])`);
       params.push(types);
     }
   }
@@ -63,14 +71,15 @@ const buildWhere = (query) => {
       .filter(Boolean);
     if (brgyList.length > 0) {
       const expanded = expandBarangays(brgyList);
-      conditions.push(`UPPER(TRIM(be.place_barangay)) = ANY($${p++}::text[])`);
+      conditions.push(`UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`);
       params.push(expanded);
     }
   }
 
-  conditions.push(
-    `LOWER(TRIM(be.status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')`,
-  );
+  // NOTE: no more status filtering here — cases_v2.status is a clean enum
+  // ('Under Investigation' | 'Solved' | 'Cleared' | 'Referred') via CHECK
+  // constraint, so there's no legacy-string cleanup needed like the old
+  // blotter_analytics_view had.
 
   const where = "WHERE " + conditions.join(" AND ");
   return { where, params, nextP: p };
@@ -81,18 +90,17 @@ const buildWhere = (query) => {
 const querySummary = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      UPPER(be.incident_type) AS crime,
+      UPPER(cr.crime_type) AS crime,
       COUNT(*) AS total,
-      COUNT(*) FILTER (WHERE LOWER(be.status) IN ('cleared', 'cce')) AS cleared,
-      COUNT(*) FILTER (WHERE LOWER(be.status) IN ('solved', 'cse')) AS solved,
+      COUNT(*) FILTER (WHERE c.status = 'Cleared') AS cleared,
+      COUNT(*) FILTER (WHERE c.status = 'Solved') AS solved,
       COUNT(*) FILTER (
-        WHERE LOWER(be.status) IN ('under investigation', 'ui', 'for investigation', 'active', 'ongoing')
+        WHERE c.status IN ('Under Investigation', 'Referred')
       ) AS under_investigation
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-       AND LOWER(TRIM(be.status)) IN ('cleared','cce','solved','cse','under investigation','ui','for investigation','active','ongoing')
-     GROUP BY UPPER(be.incident_type)`,
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+     GROUP BY UPPER(cr.crime_type)`,
     [...params, INDEX_CRIMES],
   );
 
@@ -113,18 +121,11 @@ const querySummary = async (where, params, nextP) => {
 // ─── queryTrends ──────────────────────────────────────────────────────────────
 // granularity values: "daily" | "weekly" | "monthly"
 //
-// ROOT CAUSE FIX (weekly key mismatch):
+// ROOT CAUSE FIX (weekly key mismatch) — unchanged from the view-based version:
 //   Postgres DATE_TRUNC('week') snaps each record to the Monday (or Sunday)
-//   of its week, regardless of what dateFrom is. The old code built the
-//   skeleton starting at dateFrom (e.g. a Wednesday) and then tried to merge
-//   DB results using exact key matches — which always failed because the DB
-//   keys were week-boundary dates (e.g. Monday) while skeleton keys were
-//   offset by however many days dateFrom was past the boundary.
-//
-//   The fix: for weekly granularity, instead of requiring exact key matches,
-//   we find the skeleton bucket whose start date is closest to and <= the DB
-//   label, then accumulate counts into that bucket. This correctly maps any
-//   DB week label to its containing skeleton bucket regardless of dateFrom.
+//   of its week, regardless of what dateFrom is. The skeleton is built
+//   starting at dateFrom, so DB week-labels are merged into the skeleton
+//   bucket via closest-<=-match rather than exact key equality.
 const queryTrends = async (
   where,
   params,
@@ -144,13 +145,13 @@ const queryTrends = async (
 
   const result = await pool.query(
     `SELECT
-      TO_CHAR(DATE_TRUNC('${dateTrunc}', be.date_time_commission), 'YYYY-MM-DD') AS label,
-      UPPER(be.incident_type) AS crime,
+      TO_CHAR(DATE_TRUNC('${dateTrunc}', cr.date_time_commission), 'YYYY-MM-DD') AS label,
+      UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-     GROUP BY label, UPPER(be.incident_type)
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+     GROUP BY label, UPPER(cr.crime_type)
      ORDER BY label ASC`,
     [...params, INDEX_CRIMES],
   );
@@ -269,13 +270,13 @@ else cursorClone.setMonth(cursorClone.getMonth() + 1);
 const queryHourly = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      EXTRACT(HOUR FROM be.date_time_commission)::int AS hour,
-      UPPER(be.incident_type) AS crime,
+      EXTRACT(HOUR FROM cr.date_time_commission)::int AS hour,
+      UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-     GROUP BY hour, UPPER(be.incident_type)
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+     GROUP BY hour, UPPER(cr.crime_type)
      ORDER BY hour ASC`,
     [...params, INDEX_CRIMES],
   );
@@ -301,14 +302,13 @@ const queryHourly = async (where, params, nextP) => {
 const queryByDay = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      be.day_of_incident AS day,
-      UPPER(be.incident_type) AS crime,
+      ${DAY_OF_WEEK_EXPR} AS day,
+      UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-       AND be.day_of_incident IS NOT NULL
-     GROUP BY be.day_of_incident, UPPER(be.incident_type)
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+     GROUP BY ${DAY_OF_WEEK_EXPR}, UPPER(cr.crime_type)
      ORDER BY count DESC`,
     [...params, INDEX_CRIMES],
   );
@@ -330,15 +330,15 @@ const queryByDay = async (where, params, nextP) => {
 const queryPlace = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      TRIM(be.type_of_place) AS place,
-      UPPER(be.incident_type) AS crime,
+      TRIM(cr.type_of_place) AS place,
+      UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-       AND be.type_of_place IS NOT NULL
-       AND TRIM(be.type_of_place) <> ''
-     GROUP BY TRIM(be.type_of_place), UPPER(be.incident_type)
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+       AND cr.type_of_place IS NOT NULL
+       AND TRIM(cr.type_of_place) <> ''
+     GROUP BY TRIM(cr.type_of_place), UPPER(cr.crime_type)
      ORDER BY count DESC`,
     [...params, INDEX_CRIMES],
   );
@@ -358,15 +358,15 @@ const queryPlace = async (where, params, nextP) => {
 const queryBarangay = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      TRIM(be.place_barangay) AS barangay,
-      UPPER(be.incident_type) AS crime,
+      TRIM(cr.place_barangay) AS barangay,
+      UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-       AND be.place_barangay IS NOT NULL
-       AND TRIM(be.place_barangay) <> ''
-     GROUP BY TRIM(be.place_barangay), UPPER(be.incident_type)
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+       AND cr.place_barangay IS NOT NULL
+       AND TRIM(cr.place_barangay) <> ''
+     GROUP BY TRIM(cr.place_barangay), UPPER(cr.crime_type)
      ORDER BY count DESC`,
     [...params, INDEX_CRIMES],
   );
@@ -384,15 +384,16 @@ const queryBarangay = async (where, params, nextP) => {
 const queryModus = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      UPPER(be.incident_type) AS crime,
-      TRIM(be.modus) AS modus,
+      UPPER(cr.crime_type) AS crime,
+      TRIM(cmr.modus_name) AS modus,
       COUNT(*) AS count
-     FROM blotter_analytics_view be
+     ${BASE_FROM}
+     LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
-       AND be.modus IS NOT NULL
-       AND TRIM(be.modus) <> ''
-     GROUP BY UPPER(be.incident_type), TRIM(be.modus)
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+       AND cmr.modus_name IS NOT NULL
+       AND TRIM(cmr.modus_name) <> ''
+     GROUP BY UPPER(cr.crime_type), TRIM(cmr.modus_name)
      ORDER BY count DESC
      LIMIT 50`,
     [...params, INDEX_CRIMES],
@@ -408,23 +409,24 @@ const queryModus = async (where, params, nextP) => {
 const queryCompleteData = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      TRIM(be.place_barangay)      AS barangay,
-      TRIM(be.type_of_place)       AS type_of_place,
-      TO_CHAR(be.date_time_commission, 'MM/DD/YYYY') AS date,
-      TO_CHAR(be.date_time_commission, 'HH12:MI AM') AS time,
-      UPPER(be.incident_type)      AS crime_offense,
-      TRIM(be.modus)               AS modus,
-      TRIM(be.status)              AS case_status
-     FROM blotter_analytics_view be
+      TRIM(cr.place_barangay)      AS barangay,
+      TRIM(cr.type_of_place)       AS type_of_place,
+      TO_CHAR(cr.date_time_commission, 'MM/DD/YYYY') AS date,
+      TO_CHAR(cr.date_time_commission, 'HH12:MI AM') AS time,
+      UPPER(cr.crime_type)         AS crime_offense,
+      TRIM(cmr.modus_name)         AS modus,
+      c.status                     AS case_status
+     ${BASE_FROM}
+     LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
      ${where}
-     ${where ? "AND" : "WHERE"} UPPER(be.incident_type) = ANY($${nextP}::text[])
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
      ORDER BY
-       TRIM(be.place_barangay) ASC,
-       UPPER(be.incident_type) ASC,
+       TRIM(cr.place_barangay) ASC,
+       UPPER(cr.crime_type) ASC,
        CASE
-         WHEN LOWER(TRIM(be.status)) NOT IN ('cleared','cce','solved','cse','closed') THEN 0
-         WHEN LOWER(TRIM(be.status)) IN ('cleared','cce') THEN 1
-         WHEN LOWER(TRIM(be.status)) IN ('solved','cse') THEN 2
+         WHEN c.status = 'Under Investigation' THEN 0
+         WHEN c.status = 'Cleared' THEN 1
+         WHEN c.status = 'Solved' THEN 2
          ELSE 3
        END ASC`,
     [...params, INDEX_CRIMES],
@@ -476,7 +478,7 @@ const getOverview = async (req, res) => {
       if (assignedBarangays.length > 0) {
         // Override with patrol assigned barangays
         where = where.replace(
-          /UPPER\(TRIM\(be\.place_barangay\)\) = ANY\(\$\d+::text\[\]\)/,
+          /UPPER\(TRIM\(cr\.place_barangay\)\) = ANY\(\$\d+::text\[\]\)/,
           ""
         );
         params = params.filter((_, i) => {
@@ -484,7 +486,7 @@ const getOverview = async (req, res) => {
           return !Array.isArray(params[i]);
         });
         const expanded = expandBarangays(assignedBarangays);
-        where += ` AND UPPER(TRIM(be.place_barangay)) = ANY($${nextP}::text[])`;
+        where += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${nextP}::text[])`;
         params.push(expanded);
         nextP++;
       }
@@ -657,5 +659,5 @@ module.exports = {
   getByBarangay,
   getByModus,
   getCompleteData,
-  getPatrolUserBarangays,  // ADD THIS
+  getPatrolUserBarangays,
 };

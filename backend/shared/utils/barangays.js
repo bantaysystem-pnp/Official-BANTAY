@@ -4,25 +4,53 @@
 // instead of keeping its own copy — update names in ONE place.
 
 const VALID_BARANGAYS = [
-  "ANIBAN I", "ANIBAN II", "BAYANAN", "DULONG BAYAN",
-  "HABAY I", "HABAY II", "POBLACION",
+  "ANIBAN I",
+  "ANIBAN II",
+  "BAYANAN",
+  "DULONG BAYAN",
+  "HABAY I",
+  "HABAY II",
   "KAINGIN DIGMAN",
-  "LIGAS I", "LIGAS II",
-  "MABOLO", "MALIKSI I", "MALIKSI II",
-  "MAMBOG I", "MAMBOG II", "MAMBOG III", "MAMBOG IV",
-  "MOLINO I", "MOLINO II", "MOLINO III", "MOLINO IV",
-  "MOLINO V", "MOLINO VI", "MOLINO VII",
+  "LIGAS I",
+  "LIGAS II",
+  "MABOLO",
+  "MALIKSI I",
+  "MALIKSI II",
+  "MAMBOG I",
+  "MAMBOG II",
+  "MAMBOG III",
+  "MAMBOG IV",
+  "MOLINO I",
+  "MOLINO II",
+  "MOLINO III",
+  "MOLINO IV",
+  "MOLINO V",
+  "MOLINO VI",
+  "MOLINO VII",
   "NIOG",
-  "P.F. ESPIRITU I (PANAPAAN)", "P.F. ESPIRITU II",
-  "P.F. ESPIRITU III", "P.F. ESPIRITU IV",
-  "P.F. ESPIRITU V", "P.F. ESPIRITU VI",
-  "QUEENS ROW CENTRAL", "QUEENS ROW EAST", "QUEENS ROW WEST",
+  "P.F. ESPIRITU I (PANAPAAN)",
+  "P.F. ESPIRITU II",
+  "P.F. ESPIRITU III",
+  "P.F. ESPIRITU IV",
+  "P.F. ESPIRITU V",
+  "P.F. ESPIRITU VI",
+  "POBLACION",
+  "QUEENS ROW CENTRAL",
+  "QUEENS ROW EAST",
+  "QUEENS ROW WEST",
   "REAL",
-  "SALINAS I", "SALINAS II",
-  "SAN NICOLAS I", "SAN NICOLAS II", "SAN NICOLAS III",
+  "SALINAS I",
+  "SALINAS II",
+  "SAN NICOLAS I",
+  "SAN NICOLAS II",
+  "SAN NICOLAS III",
   "SINBANALI",
-  "TALABA I", "TALABA II", "TALABA III",
-  "ZAPOTE I", "ZAPOTE II", "ZAPOTE III",
+  "TALABA I",
+  "TALABA II",
+  "TALABA III",
+  "ZAPOTE I",
+  "ZAPOTE II",
+  "ZAPOTE III",
 ];
 
 const BARANGAY_ALIASES = {
@@ -125,7 +153,8 @@ const BARANGAY_ALIASES = {
 
 const REVERSE_BARANGAY_ALIASES = {};
 Object.entries(BARANGAY_ALIASES).forEach(([legacy, current]) => {
-  if (!REVERSE_BARANGAY_ALIASES[current]) REVERSE_BARANGAY_ALIASES[current] = [];
+  if (!REVERSE_BARANGAY_ALIASES[current])
+    REVERSE_BARANGAY_ALIASES[current] = [];
   REVERSE_BARANGAY_ALIASES[current].push(legacy);
 });
 
@@ -141,7 +170,9 @@ function expandBarangays(names) {
   names.forEach((name) => {
     const upper = name.trim().toUpperCase();
     expanded.add(upper);
-    (REVERSE_BARANGAY_ALIASES[upper] || []).forEach((alias) => expanded.add(alias));
+    (REVERSE_BARANGAY_ALIASES[upper] || []).forEach((alias) =>
+      expanded.add(alias),
+    );
   });
   return [...expanded];
 }

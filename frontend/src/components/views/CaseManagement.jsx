@@ -160,11 +160,9 @@ function CaseManagement() {
           const searchTerm = f.search.trim().toUpperCase();
           result = result.filter((c) => {
             const haystack = [
-              c.blotter_entry_number,
-              c.case_number,
-              c.incident_type,
+              c.report_number,
+              c.crime_type,
               c.barangay,
-              c.location,
               c.assigned_io_name,
             ]
               .filter(Boolean)
@@ -784,11 +782,11 @@ function CaseManagement() {
                         borderRadius: "6px",
                       }}
                     >
-                      {c.blotter_entry_number || c.case_number}
+                      {c.report_number}
                     </span>
                   </div>
                   <div className="cm-case-title">
-                    {c.incident_type} — {c.barangay}
+                    {c.crime_type} — {c.barangay}
                   </div>
                 </div>
                 <span
@@ -804,7 +802,7 @@ function CaseManagement() {
                 </div>
                 <div className="cm-case-meta-item">
                   <span className="cm-case-meta-label">Location:</span>
-                  <span>{c.location || c.barangay}</span>
+                  <span>{c.barangay}</span>
                 </div>
                 <div className="cm-case-meta-item">
                   <span className="cm-case-meta-label">Last Updated:</span>
@@ -935,8 +933,7 @@ function CaseManagement() {
                 </svg>
                 <span style={{ fontSize: "13px", color: "#374151" }}>
                   Case:{" "}
-                  {selectedCase?.blotter_entry_number ||
-                    selectedCase?.case_number}
+                  {selectedCase?.report_number}
                 </span>
               </div>
 
@@ -1000,7 +997,7 @@ function CaseManagement() {
                       fontSize: "13px",
                     }}
                   >
-                    Loading investigators...
+                    No investigators
                   </div>
                 ) : (
                   investigators.map((inv) => {
@@ -1169,8 +1166,7 @@ function CaseManagement() {
                 </svg>
                 <span style={{ fontSize: "13px", color: "#374151" }}>
                   Case:{" "}
-                  {selectedCase?.blotter_entry_number ||
-                    selectedCase?.case_number}
+                  {selectedCase?.report_number}
                 </span>
               </div>
               <label
@@ -1365,8 +1361,7 @@ function CaseManagement() {
                 </svg>
                 <span style={{ fontSize: "13px", color: "#374151" }}>
                   Case:{" "}
-                  {selectedCase?.blotter_entry_number ||
-                    selectedCase?.case_number}
+                  {selectedCase?.report_number}
                 </span>
               </div>
 
@@ -1513,9 +1508,7 @@ function CaseManagement() {
             }}
           >
             <div className="cm-modal-header">
-              <h2>
-                {selectedCase.blotter_entry_number || selectedCase.case_number}
-              </h2>
+              <h2>{selectedCase.report_number}</h2>
               <span
                 className="cm-modal-close"
                 onClick={() => {
@@ -1551,7 +1544,7 @@ function CaseManagement() {
                   }}
                 >
                   <span className="cm-detail-label">Crime Type</span>
-                  <span>{selectedCase.incident_type}</span>
+                  <span>{selectedCase.crime_type}</span>
                 </div>
                 <div
                   className="cm-detail-item"
@@ -1618,6 +1611,7 @@ function CaseManagement() {
                   <span className="cm-detail-label">Barangay</span>
                   <span>{selectedCase.barangay}</span>
                 </div>
+
                 <div
                   className="cm-detail-item"
                   style={{
@@ -1626,19 +1620,7 @@ function CaseManagement() {
                     borderRight: "1px solid #f3f4f6",
                   }}
                 >
-                  <span className="cm-detail-label">Location</span>
-                  <span>{selectedCase.location}</span>
-                </div>
-                <div
-                  className="cm-detail-item"
-                  style={{
-                    padding: "14px 18px",
-                    borderBottom: "1px solid #f3f4f6",
-                    borderRight: "1px solid #f3f4f6",
-                  }}
-                >
-                  <span className="cm-detail-label">Date Created</span>
-                  <span>{formatDate(selectedCase.created_at)}</span>
+
                 </div>
                 <div
                   className="cm-detail-item"
@@ -2094,8 +2076,7 @@ function CaseManagement() {
                       fontFamily: "monospace",
                     }}
                   >
-                    {selectedCase?.blotter_entry_number ||
-                      selectedCase?.case_number}
+                    {selectedCase?.report_number}
                   </strong>
                 </span>
               </div>

@@ -6,107 +6,28 @@ const {
   createNotification,
   notifyAllByRole,
 } = require("../../notifications/notificationService");
-// POST /cases — Admin only
-const createCase = async (req, res) => {
-  try {
-    const { blotter_id } = req.body;
-    if (!blotter_id)
-      return res
-        .status(400)
-        .json({ success: false, message: "blotter_id is required" });
 
-    const blotter = await pool.query(
-      "SELECT blotter_id, incident_type, date_time_reported, date_time_commission FROM blotter_entries WHERE blotter_id = $1",
-      [blotter_id],
-    );
-    if (blotter.rows.length === 0)
-      return res
-        .status(404)
-        .json({ success: false, message: "Blotter not found" });
-
-    const existing = await pool.query(
-      "SELECT id FROM cases WHERE blotter_id = $1",
-      [blotter_id],
-    );
-    if (existing.rows.length > 0)
-      return res.status(409).json({
-        success: false,
-        message: "A case already exists for this blotter",
-      });
-
-    const year = new Date().getFullYear();
-    const countResult = await pool.query(
-      "SELECT COUNT(*) FROM cases WHERE EXTRACT(YEAR FROM created_at) = $1",
-      [year],
-    );
-    const count = parseInt(countResult.rows[0].count) + 1;
-    const case_number = `CASE-${year}-${String(count).padStart(4, "0")}`;
-
-    const reportedDate =
-      blotter.rows[0].date_time_reported ||
-      blotter.rows[0].date_time_commission;
-    const blotterYear = reportedDate
-      ? new Date(reportedDate).getFullYear()
-      : new Date().getFullYear();
-    const currentYear = new Date().getFullYear();
-    const incidentType = (blotter.rows[0].incident_type || "")
-      .toLowerCase()
-      .trim();
-
-    let autoPriority = "Low";
-    if (blotterYear === currentYear) {
-      const highCrimes = [
-        "murder",
-        "homicide",
-        "rape",
-        "special complex crime",
-      ];
-      const mediumCrimes = ["robbery", "carnapping - mc", "carnapping - mv"];
-
-      if (highCrimes.includes(incidentType)) {
-        autoPriority = "High";
-      } else if (mediumCrimes.includes(incidentType)) {
-        autoPriority = "Medium";
-      }
-    }
-
-    const result = await pool.query(
-      `INSERT INTO cases (blotter_id, case_number, created_by, priority)
-   VALUES ($1, $2, $3, $4)
-   RETURNING id, case_number, blotter_id, status, priority, created_by, created_at`,
-      [blotter_id, case_number, req.user.user_id, autoPriority],
-    );
-
-    await logAudit({
-      userId: req.user?.user_id,
-      username: req.user?.username,
-      eventName: "Case Created",
-      description: `Created case ${case_number} from blotter ID ${blotter_id}`,
-      action: "CREATE",
-      status: "success",
-      source: "Web Portal",
-      ipAddress: getClientIp(req),
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Case created successfully",
-      data: result.rows[0],
-    });
-  } catch (error) {
-    console.error("Create case error:", error);
-    res.status(500).json({ success: false, message: "Error creating case" });
-  }
+// Small helper — cases_v2 no longer carries its own display identifier
+// (no case_number column), so everywhere the old code used case_number for
+// notifications/messages, we look up crime_reports_v2.report_number instead.
+const getReportNumberForCase = async (caseId) => {
+  const result = await pool.query(
+    `SELECT cr.report_number
+     FROM cases_v2 c
+     JOIN crime_reports_v2 cr ON cr.report_id = c.report_id
+     WHERE c.id = $1`,
+    [caseId],
+  );
+  return result.rows[0]?.report_number || null;
 };
 
-// PATCH /cases/:id/assign — Admin only
 // PATCH /cases/:id/assign — Admin only
 const assignInvestigator = async (req, res) => {
   try {
     const { id } = req.params;
     const { assigned_io_id } = req.body;
 
-    const caseCheck = await pool.query("SELECT id FROM cases WHERE id = $1", [
+    const caseCheck = await pool.query("SELECT id FROM cases_v2 WHERE id = $1", [
       id,
     ]);
     if (caseCheck.rows.length === 0)
@@ -117,8 +38,8 @@ const assignInvestigator = async (req, res) => {
     // Allow unassigning by passing null or empty string
     if (!assigned_io_id || assigned_io_id === "") {
       const result = await pool.query(
-        `UPDATE cases SET assigned_io_id = NULL, updated_at = NOW()
-         WHERE id = $1 RETURNING id, case_number, assigned_io_id, updated_at`,
+        `UPDATE cases_v2 SET assigned_io_id = NULL, updated_at = NOW()
+         WHERE id = $1 RETURNING id, assigned_io_id, updated_at`,
         [id],
       );
 
@@ -159,18 +80,12 @@ const assignInvestigator = async (req, res) => {
         .json({ success: false, message: "Cannot assign a locked account" });
 
     const result = await pool.query(
-      `UPDATE cases SET assigned_io_id = $1, updated_at = NOW()
-       WHERE id = $2 RETURNING id, case_number, assigned_io_id, updated_at`,
+      `UPDATE cases_v2 SET assigned_io_id = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING id, assigned_io_id, updated_at`,
       [assigned_io_id, id],
     );
-    const blotterRef = await pool.query(
-      `SELECT b.blotter_entry_number FROM cases c 
-   JOIN blotter_entries b ON c.blotter_id = b.blotter_id 
-   WHERE c.id = $1`,
-      [id],
-    );
-    const blotterEntryNumber =
-      blotterRef.rows[0]?.blotter_entry_number || result.rows[0].case_number;
+
+    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
 
     const io = user.rows[0];
     await logAudit({
@@ -183,19 +98,13 @@ const assignInvestigator = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-    console.log(
-      "Sending notif to:",
-      assigned_io_id,
-      "type:",
-      typeof assigned_io_id,
-    );
     await createNotification({
       recipientId: assigned_io_id,
       senderId: req.user.user_id,
       senderName: req.user.username,
       type: "CASE_ASSIGNED",
       title: "Case Assigned to You",
-      message: `You have been assigned to ${blotterEntryNumber}`,
+      message: `You have been assigned to ${reportNumber}`,
       linkTo: "/case-management",
     });
     return res.status(200).json({
@@ -220,13 +129,15 @@ const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowed = ["Under Investigation", "Solved", "Cleared"];
+    // "Referred" added — it's a valid cases_v2.status value per the CHECK
+    // constraint, even though the old blotter-backed flow never exposed it here.
+    const allowed = ["Under Investigation", "Solved", "Cleared", "Referred"];
     if (!status || !allowed.includes(status))
       return res
         .status(400)
         .json({ success: false, message: "Invalid status value" });
 
-    const caseResult = await pool.query("SELECT * FROM cases WHERE id = $1", [
+    const caseResult = await pool.query("SELECT * FROM cases_v2 WHERE id = $1", [
       id,
     ]);
     if (caseResult.rows.length === 0)
@@ -244,27 +155,18 @@ const updateStatus = async (req, res) => {
     }
 
     const result = await pool.query(
-      `UPDATE cases
+      `UPDATE cases_v2
        SET status = $1::varchar,
            priority = CASE WHEN $1::varchar IN ('Solved', 'Cleared') THEN 'Low' ELSE priority END,
            updated_at = NOW()
        WHERE id = $2
-       RETURNING id, case_number, status, priority, updated_at, blotter_id`,
+       RETURNING id, report_id, status, priority, updated_at`,
       [status, id],
     );
 
-    const blotterStatusMap = {
-      "Under Investigation": "Under Investigation",
-      Solved: "Solved",
-      Cleared: "Cleared",
-    };
-    const blotterUpdate = await pool.query(
-      `UPDATE blotter_entries SET status = $1 WHERE blotter_id = $2 
-   RETURNING blotter_entry_number`,
-      [blotterStatusMap[status], result.rows[0].blotter_id],
-    );
-    const blotterEntryNumber =
-      blotterUpdate.rows[0]?.blotter_entry_number || result.rows[0].case_number;
+    const reportNumber =
+      (await getReportNumberForCase(id)) || `Case #${id}`;
+
     await logAudit({
       userId: req.user?.user_id,
       username: req.user?.username,
@@ -276,23 +178,6 @@ const updateStatus = async (req, res) => {
       ipAddress: getClientIp(req),
     });
 
-    // Notify barangay who submitted the referral (only if it's a brgy referral)
-    const referralInfo = await pool.query(
-      `SELECT submitted_by FROM blotter_entries 
-       WHERE blotter_id = $1 AND referred_by_barangay = true`,
-      [result.rows[0].blotter_id],
-    );
-    if (referralInfo.rows[0]?.submitted_by) {
-      await createNotification({
-        recipientId: referralInfo.rows[0].submitted_by,
-        senderId: req.user.user_id,
-        senderName: req.user.username,
-        type: "REFERRAL_ACCEPTED",
-        title: "Referral Status Updated",
-        message: `Your referral ${blotterEntryNumber} has been updated to "${status}"`,
-        linkTo: "/brgy-report",
-      });
-    }
     // Notify the assigned investigator (only if someone is assigned)
     const assignedIoId = caseResult.rows[0].assigned_io_id;
     if (assignedIoId && assignedIoId !== req.user.user_id) {
@@ -302,7 +187,7 @@ const updateStatus = async (req, res) => {
         senderName: req.user.username,
         type: "CASE_ASSIGNED",
         title: "Case Status Updated",
-        message: `${blotterEntryNumber} status changed to "${status}"`,
+        message: `${reportNumber} status changed to "${status}"`,
         linkTo: "/case-management",
       });
     }
@@ -315,7 +200,7 @@ const updateStatus = async (req, res) => {
           senderName: req.user.username,
           type: "CASE_ASSIGNED",
           title: "Case Status Updated",
-          message: `${req.user.username} updated ${blotterEntryNumber} to "${status}"`,
+          message: `${req.user.username} updated ${reportNumber} to "${status}"`,
           linkTo: "/case-management",
         },
         req.user.user_id,
@@ -339,11 +224,10 @@ const getCases = async (req, res) => {
     const role = req.user.role;
     const userId = req.user.user_id;
 
-    let whereConditions = [];
+    let whereConditions = ["cr.is_deleted = false"];
     let params = [];
     let paramCount = 1;
 
-    // Role-based filtering
     // Role-based filtering
     if (role === "Investigator") {
       whereConditions.push(`c.assigned_io_id = $${paramCount++}`);
@@ -351,7 +235,7 @@ const getCases = async (req, res) => {
     } else if (role === "Patrol") {
       return res.status(200).json({ success: true, data: [] });
     } else if (role === "Barangay") {
-      // ✅ Barangay users can't access Case Management at all
+      // Barangay users can't access Case Management at all
       return res.status(200).json({ success: true, data: [] });
     }
 
@@ -364,32 +248,29 @@ const getCases = async (req, res) => {
       params.push(priority);
     }
     if (date_from) {
-      whereConditions.push(`b.date_time_commission >= $${paramCount++}`);
+      whereConditions.push(`cr.date_time_commission >= $${paramCount++}`);
       params.push(date_from);
     }
     if (date_to) {
       whereConditions.push(
-        `b.date_time_commission < ($${paramCount++}::date + interval '1 day')`,
+        `cr.date_time_commission < ($${paramCount++}::date + interval '1 day')`,
       );
       params.push(date_to);
     }
 
-    const where =
-      whereConditions.length > 0
-        ? `WHERE ${whereConditions.join(" AND ")}`
-        : "";
+    const where = `WHERE ${whereConditions.join(" AND ")}`;
 
     const result = await pool.query(
-      `SELECT c.id, c.case_number, c.status, c.priority, c.created_at, c.updated_at,
+      `SELECT c.id, c.status, c.priority, c.updated_at,
     c.assigned_io_id,
     CONCAT(u.first_name, ' ', u.last_name) AS assigned_io_name,
-   b.incident_type,
-    b.place_barangay AS barangay,
-    b.blotter_entry_number,
-    CONCAT(b.place_city_municipality, ', ', b.place_district_province) AS location
- FROM cases c
+    cr.crime_type,
+    cr.place_barangay AS barangay,
+    cr.report_number,
+    cr.created_at
+ FROM cases_v2 c
    LEFT JOIN users u ON c.assigned_io_id = u.user_id
-   INNER JOIN blotter_entries b ON c.blotter_id = b.blotter_id AND b.deleted_at IS NULL
+   INNER JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
 ${where}
    ORDER BY 
   CASE 
@@ -404,7 +285,7 @@ ${where}
     WHEN c.priority = 'Low' AND c.status = 'Solved' THEN 9
     ELSE 10
   END,
-  c.created_at DESC`,
+  cr.created_at DESC`,
       params,
     );
 
@@ -419,16 +300,16 @@ ${where}
 const getStatistics = async (req, res) => {
   try {
     const { date_from, date_to, status, priority } = req.query;
-    const conditions = ["b.deleted_at IS NULL"];
+    const conditions = ["cr.is_deleted = false"];
     const params = [];
     let p = 1;
     if (date_from) {
-      conditions.push(`b.date_time_commission >= $${p++}`);
+      conditions.push(`cr.date_time_commission >= $${p++}`);
       params.push(date_from);
     }
     if (date_to) {
       conditions.push(
-        `b.date_time_commission < ($${p++}::date + interval '1 day')`,
+        `cr.date_time_commission < ($${p++}::date + interval '1 day')`,
       );
       params.push(date_to);
     }
@@ -450,8 +331,8 @@ const getStatistics = async (req, res) => {
     COUNT(*) FILTER (WHERE c.status = 'Referred') AS referred_cases,
     COUNT(*) FILTER (WHERE c.assigned_io_id IS NULL) AS unassigned_cases,
     COUNT(*) FILTER (WHERE c.priority = 'High') AS high_priority_cases
-   FROM cases c
-   INNER JOIN blotter_entries b ON c.blotter_id = b.blotter_id
+   FROM cases_v2 c
+   INNER JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
    ${where}`,
       params,
     );
@@ -487,13 +368,11 @@ const getCaseById = async (req, res) => {
     const caseResult = await pool.query(
       `SELECT c.*, 
           CONCAT(u.first_name, ' ', u.last_name) AS assigned_io_name,
-          b.incident_type, b.place_barangay AS barangay,
-          b.narrative, b.status AS blotter_status,
-          b.blotter_entry_number,
-          CONCAT(b.place_city_municipality, ', ', b.place_district_province) AS location
-   FROM cases c
+          cr.crime_type, cr.place_barangay AS barangay,
+          cr.report_number, cr.created_at AS report_created_at
+   FROM cases_v2 c
        LEFT JOIN users u ON c.assigned_io_id = u.user_id
-       LEFT JOIN blotter_entries b ON c.blotter_id = b.blotter_id
+       LEFT JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
        WHERE c.id = $1`,
       [id],
     );
@@ -524,7 +403,7 @@ to_char(cn.edited_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS edited_at,
 to_char(cn.deleted_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS deleted_at,
           cn.added_by_id,
           CONCAT(u.first_name, ' ', u.last_name) AS added_by_name
-   FROM case_notes cn
+   FROM case_notes_v2 cn
    JOIN users u ON cn.added_by_id = u.user_id
    WHERE cn.case_id = $1 ${isAdmin ? "" : "AND cn.deleted_at IS NULL"}
    ORDER BY cn.created_at DESC`,
@@ -551,7 +430,7 @@ const addNote = async (req, res) => {
         message: "Note must be at least 3 characters",
       });
 
-    const caseResult = await pool.query("SELECT * FROM cases WHERE id = $1", [
+    const caseResult = await pool.query("SELECT * FROM cases_v2 WHERE id = $1", [
       id,
     ]);
     if (caseResult.rows.length === 0)
@@ -568,7 +447,7 @@ const addNote = async (req, res) => {
         .json({ success: false, message: "You are not assigned to this case" });
 
     const result = await pool.query(
-      `INSERT INTO case_notes (case_id, note, added_by_id, note_date)
+      `INSERT INTO case_notes_v2 (case_id, note, added_by_id, note_date)
        VALUES ($1, $2, $3, $4) RETURNING *`,
       [id, note.trim(), req.user.user_id, note_date || new Date()],
     );
@@ -588,14 +467,9 @@ const addNote = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-    const theCase = caseResult.rows[0];
-    const blotterRow = await pool.query(
-      `SELECT blotter_entry_number FROM blotter_entries WHERE blotter_id = $1`,
-      [theCase.blotter_id],
-    );
-    const blotterEntryNumber =
-      blotterRow.rows[0]?.blotter_entry_number || theCase.case_number;
-    const assignedIoId = theCase.assigned_io_id;
+
+    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
+    const assignedIoId = caseResult.rows[0].assigned_io_id;
 
     // Notify investigator if someone else added the note
     if (assignedIoId && assignedIoId !== req.user.user_id) {
@@ -605,7 +479,7 @@ const addNote = async (req, res) => {
         senderName: req.user.username,
         type: "CASE_ASSIGNED",
         title: "New Note Added",
-        message: `${req.user.username} added a note to ${blotterEntryNumber}`,
+        message: `${req.user.username} added a note to ${reportNumber}`,
         linkTo: "/case-management",
       });
     }
@@ -618,7 +492,7 @@ const addNote = async (req, res) => {
           senderName: req.user.username,
           type: "CASE_ASSIGNED",
           title: "New Note Added",
-          message: `${req.user.username} added a note to ${blotterEntryNumber}`,
+          message: `${req.user.username} added a note to ${reportNumber}`,
           linkTo: "/case-management",
         },
         req.user.user_id,
@@ -644,8 +518,7 @@ const updatePriority = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid priority" });
 
-    // ADD THIS:
-    const caseResult = await pool.query("SELECT * FROM cases WHERE id = $1", [
+    const caseResult = await pool.query("SELECT * FROM cases_v2 WHERE id = $1", [
       id,
     ]);
     if (caseResult.rows.length === 0)
@@ -661,7 +534,7 @@ const updatePriority = async (req, res) => {
         .json({ success: false, message: "You are not assigned to this case" });
 
     const result = await pool.query(
-      "UPDATE cases SET priority = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+      "UPDATE cases_v2 SET priority = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
       [priority, id],
     );
     await logAudit({
@@ -675,12 +548,7 @@ const updatePriority = async (req, res) => {
       ipAddress: getClientIp(req),
     });
 
-    const blotterRow = await pool.query(
-      `SELECT blotter_entry_number FROM blotter_entries WHERE blotter_id = $1`,
-      [caseResult.rows[0].blotter_id],
-    );
-    const blotterEntryNumber =
-      blotterRow.rows[0]?.blotter_entry_number || result.rows[0].case_number;
+    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
 
     const assignedIoId = caseResult.rows[0].assigned_io_id;
     if (assignedIoId && assignedIoId !== req.user.user_id) {
@@ -690,7 +558,7 @@ const updatePriority = async (req, res) => {
         senderName: req.user.username,
         type: "CASE_ASSIGNED",
         title: "Case Priority Updated",
-        message: `${blotterEntryNumber} priority changed to "${priority}"`,
+        message: `${reportNumber} priority changed to "${priority}"`,
         linkTo: "/case-management",
       });
     }
@@ -702,7 +570,7 @@ const updatePriority = async (req, res) => {
           senderName: req.user.username,
           type: "CASE_ASSIGNED",
           title: "Case Priority Updated",
-          message: `${req.user.username} updated ${blotterEntryNumber} priority to "${priority}"`,
+          message: `${req.user.username} updated ${reportNumber} priority to "${priority}"`,
           linkTo: "/case-management",
         },
         req.user.user_id,
@@ -725,7 +593,7 @@ const editNote = async (req, res) => {
         .json({ success: false, message: "Note too short" });
 
     const existing = await pool.query(
-      "SELECT * FROM case_notes WHERE id = $1 AND deleted_at IS NULL",
+      "SELECT * FROM case_notes_v2 WHERE id = $1 AND deleted_at IS NULL",
       [noteId],
     );
     if (existing.rows.length === 0)
@@ -742,7 +610,7 @@ const editNote = async (req, res) => {
         .json({ success: false, message: "Cannot edit others' notes" });
 
     const result = await pool.query(
-      `UPDATE case_notes SET note = $1, edited_at = NOW()
+      `UPDATE case_notes_v2 SET note = $1, edited_at = NOW()
    WHERE id = $2 RETURNING *`,
       [note.trim(), noteId],
     );
@@ -766,7 +634,7 @@ const deleteNote = async (req, res) => {
   try {
     const { noteId } = req.params;
     const existing = await pool.query(
-      "SELECT * FROM case_notes WHERE id = $1 AND deleted_at IS NULL",
+      "SELECT * FROM case_notes_v2 WHERE id = $1 AND deleted_at IS NULL",
       [noteId],
     );
     if (existing.rows.length === 0)
@@ -782,7 +650,7 @@ const deleteNote = async (req, res) => {
         .status(403)
         .json({ success: false, message: "Cannot delete others' notes" });
 
-    await pool.query("UPDATE case_notes SET deleted_at = NOW() WHERE id = $1", [
+    await pool.query("UPDATE case_notes_v2 SET deleted_at = NOW() WHERE id = $1", [
       noteId,
     ]);
 
@@ -806,7 +674,7 @@ const restoreNote = async (req, res) => {
   try {
     const { noteId } = req.params;
     const existing = await pool.query(
-      "SELECT * FROM case_notes WHERE id = $1 AND deleted_at IS NOT NULL",
+      "SELECT * FROM case_notes_v2 WHERE id = $1 AND deleted_at IS NOT NULL",
       [noteId],
     );
     if (existing.rows.length === 0)
@@ -814,7 +682,7 @@ const restoreNote = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Note not found or not deleted" });
 
-    await pool.query("UPDATE case_notes SET deleted_at = NULL WHERE id = $1", [
+    await pool.query("UPDATE case_notes_v2 SET deleted_at = NULL WHERE id = $1", [
       noteId,
     ]);
     await logAudit({
@@ -834,7 +702,6 @@ const restoreNote = async (req, res) => {
 };
 
 module.exports = {
-  createCase,
   assignInvestigator,
   updateStatus,
   updatePriority,

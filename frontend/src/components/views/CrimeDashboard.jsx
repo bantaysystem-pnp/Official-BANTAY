@@ -1338,6 +1338,8 @@ const TrendsTooltip = ({ active, payload, label }) => {
     return b.value - a.value;
   });
 
+  
+
   return (
     <div
       style={{
@@ -1386,6 +1388,8 @@ const CrimeTrends = ({ appliedFilters, data }) => {
     [appliedFilters.preset, appliedFilters.dateFrom, appliedFilters.dateTo],
   );
 
+  const showLabels = granularity !== "monthly" || data.length <= 24;
+  
   const activeCrimes =
     appliedFilters.crimeTypes.length > 0
       ? appliedFilters.crimeTypes
@@ -1486,21 +1490,21 @@ const CrimeTrends = ({ appliedFilters, data }) => {
               stroke={CRIME_COLORS.Total}
               strokeWidth={3}
               dot={
-                data.length <= 24
-                  ? { r: 5, fill: CRIME_COLORS.Total, strokeWidth: 0 }
-                  : false
-              }
+  showLabels
+    ? { r: 5, fill: CRIME_COLORS.Total, strokeWidth: 0 }
+    : false
+}
               activeDot={{ r: 5, fill: CRIME_COLORS.Total }}
             >
-              {data.length <= 24 && (
-                <LabelList
-                  dataKey="Total"
-                  position="top"
-                  offset={12}
-                  style={{ fontSize: 11, fontWeight: 700, fill: "#1e3a5f" }}
-                  formatter={(v) => (v ? v : "")}
-                />
-              )}
+              {showLabels && (
+  <LabelList
+    dataKey="Total"
+    position="top"
+    offset={12}
+    style={{ fontSize: 11, fontWeight: 700, fill: "#1e3a5f" }}
+    formatter={(v) => (v ? v : "")}
+  />
+)}
             </Line>
 
             {activeCrimes.map((key) => (

@@ -11,6 +11,7 @@ import {
 import "./LoginSystem.css";
 import { jwtDecode } from "jwt-decode";
 import { useNavigate } from "react-router-dom";
+import DataPrivacyModal from "../modals/DataPrivacyModal.jsx";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -69,6 +70,7 @@ const LoginSystem = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // ── OTP lockout state — now supports "blocked" (daily limit) and
   // "session-locked" (3x wrong OTP), same as ChangePasswordModal ────────────
@@ -803,8 +805,18 @@ const LoginSystem = () => {
                 <p>
                   <span className="notice-bold">Security Notice:</span> This
                   system is restricted to authorized personnel only. All access
-                  attempts are logged and monitored for security purposes.
+                  attempts are logged and monitored for security purposes. <span>
+                  <button
+                  type="button"
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="link-button"
+                  style={{ fontSize: 13 }}
+                >
+                  View Data Privacy Statement
+                </button>
+                  </span>
                 </p>
+                
               </div>
             </div>
           )}
@@ -1255,6 +1267,11 @@ const LoginSystem = () => {
           )}
         </div>
       </div>
+
+      <DataPrivacyModal
+        isOpen={showPrivacyModal}
+        onClose={() => setShowPrivacyModal(false)}
+      />
     </div>
   );
 };

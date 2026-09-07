@@ -335,7 +335,7 @@ def get_incidents(
             cr.lat,
             cr.lng,
             COALESCE(NULLIF(TRIM(cmr.modus_name), ''), 'Unknown')     AS modus,
-            COALESCE(NULLIF(TRIM(cr.type_of_place), ''), 'Unknown')   AS type_of_place,
+            COALESCE(NULLIF(TRIM(cr.type_of_operation), ''), 'Unknown')   AS type_of_place,  -- DB column renamed to type_of_operation; alias kept as type_of_place since all downstream pandas/analysis code (compute_diagnostics, compute_basic_stats, PLACE_TYPE_GROUPS lookups) references this DataFrame column name
             UPPER(TRIM(cr.place_barangay))                            AS place_barangay
         FROM crime_reports_v2 cr
         LEFT JOIN cases_v2 c ON c.report_id = cr.report_id

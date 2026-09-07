@@ -234,6 +234,11 @@ function EBlotter() {
   const [addingTypeOfPlace, setAddingTypeOfPlace] = useState(false);
   const [showAddTypeOfPlaceInput, setShowAddTypeOfPlaceInput] = useState(false);
 
+  const [mobileUnits, setMobileUnits] = useState([]);
+  const [newMobileUnitInput, setNewMobileUnitInput] = useState("");
+  const [addingMobileUnit, setAddingMobileUnit] = useState(false);
+  const [showAddMobileUnitInput, setShowAddMobileUnitInput] = useState(false);
+
   const [pendingExport, setPendingExport] = useState(null);
 
   const fetchControllerRef = useRef(null);
@@ -279,6 +284,7 @@ function EBlotter() {
   const [loadingBacoorBrgy, setLoadingBacoorBrgy] = useState(false);
   const [barangayGeoJSON, setBarangayGeoJSON] = useState(null);
   const [selectedBrgyFeature, setSelectedBrgyFeature] = useState(null);
+  const [viewMobileUnitName, setViewMobileUnitName] = useState("");
   const mapRef = React.useRef(null);
 
   const [offenses, setOffenses] = useState([
@@ -309,6 +315,7 @@ function EBlotter() {
     report_number: "",
     lat: "",
     lng: "",
+    assigned_mobile_id: "",
   });
 
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -381,6 +388,23 @@ function EBlotter() {
       }
     };
     fetchTypeOfPlaceOptions();
+  }, []);
+
+  useEffect(() => {
+    const fetchMobileUnits = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/mobile-units`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const data = await res.json();
+        // Blotter form only offers currently-active units for assignment —
+        // Mobile Unit Management is where units get removed/restored.
+        if (data.success) setMobileUnits(data.data.filter((u) => u.is_active));
+      } catch (err) {
+        console.error("Failed to load Mobile Units:", err);
+      }
+    };
+    fetchMobileUnits();
   }, []);
 
   const API_URL = `${import.meta.env.VITE_API_URL}/blotters`;
@@ -748,7 +772,9 @@ function EBlotter() {
           showReactToast(
             data.data.created
               ? "New modus added."
-              : "That modus already existed — selected it for you.",
+              : data.data.reactivated
+                ? `"${trimmed}" was removed before — restored it for you.`
+                : "That modus already existed — selected it for you.",
             "success",
           );
         }
@@ -832,6 +858,61 @@ function EBlotter() {
       return null;
     } finally {
       setAddingTypeOfOperation(false);
+    }
+  };
+
+  // silent=true suppresses the success toast — used when auto-triggered from Submit
+  const handleAddNewMobileUnit = async (silent = false) => {
+    const trimmed = newMobileUnitInput.trim();
+    if (!trimmed) return null;
+
+    setAddingMobileUnit(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/mobile-units`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ unit_name: trimmed }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const newEntry = { id: data.data.id, unit_name: data.data.unit_name, is_active: true };
+        setMobileUnits((prev) => {
+          const alreadyThere = prev.some((u) => u.id === newEntry.id);
+          return alreadyThere
+            ? prev
+            : [...prev, newEntry].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+        });
+        updateCaseDetail("assigned_mobile_id", String(newEntry.id));
+        setShowAddMobileUnitInput(false);
+        setNewMobileUnitInput("");
+        if (fieldErrors.assigned_mobile_id) {
+          const n = { ...fieldErrors };
+          delete n.assigned_mobile_id;
+          setFieldErrors(n);
+        }
+        if (!silent) {
+          showReactToast(
+            data.data.reactivated
+              ? `"${newEntry.unit_name}" was removed before — restored it for you.`
+              : "New mobile unit added.",
+            "success",
+          );
+        }
+        return newEntry.id;
+      } else {
+        showReactToast(data.message || "Failed to add mobile unit.", "error");
+        return null;
+      }
+    } catch (err) {
+      console.error("Add mobile unit error:", err);
+      showReactToast("Failed to add mobile unit. Check your connection.", "error");
+      return null;
+    } finally {
+      setAddingMobileUnit(false);
     }
   };
 
@@ -1018,6 +1099,10 @@ function EBlotter() {
           report_number: data.data.report_number || "",
           lat: data.data.lat != null ? String(data.data.lat) : "",
           lng: data.data.lng != null ? String(data.data.lng) : "",
+          assigned_mobile_id:
+            data.data.assigned_mobile_id != null
+              ? String(data.data.assigned_mobile_id)
+              : "",
         });
 
         if (resolvedBrgy && barangayGeoJSON) {
@@ -1134,6 +1219,10 @@ function EBlotter() {
           report_number: data.data.report_number || "",
           lat: data.data.lat != null ? String(data.data.lat) : "",
           lng: data.data.lng != null ? String(data.data.lng) : "",
+          assigned_mobile_id:
+            data.data.assigned_mobile_id != null
+              ? String(data.data.assigned_mobile_id)
+              : "",
         });
         if (resolvedBrgy && barangayGeoJSON) {
           const feature = barangayGeoJSON.features.find(
@@ -1141,6 +1230,7 @@ function EBlotter() {
           );
           setSelectedBrgyFeature(feature || null);
         }
+        setViewMobileUnitName(data.data.assigned_mobile_name || "");
         setViewMode(true);
         setEditMode(false);
         setEditingBlotterId(blotterId);
@@ -1404,6 +1494,8 @@ function EBlotter() {
     setNewModusInput("");
     setShowAddTypeOfPlaceInput(false);
     setNewTypeOfPlaceInput("");
+    setShowAddMobileUnitInput(false);
+    setNewMobileUnitInput("");
 
     setCaseDetail({
       incident_type: "",
@@ -1416,6 +1508,7 @@ function EBlotter() {
       place_barangay_other: "",
       lat: "",
       lng: "",
+      assigned_mobile_id: "",
     });
     setSelectedBrgyFeature(null);
   };
@@ -1509,6 +1602,16 @@ function EBlotter() {
     }
     const effectiveTypeOfOperation = pendingTypeOfOperation || typeOfOperation;
 
+    // Same pattern for Assigned Mobile Unit — optional, so an empty result is fine.
+    let pendingMobileUnitId = null;
+    if (showAddMobileUnitInput && newMobileUnitInput.trim()) {
+      pendingMobileUnitId = await handleAddNewMobileUnit(true);
+      if (!pendingMobileUnitId) {
+        return;
+      }
+    }
+    const effectiveMobileUnitId = pendingMobileUnitId || caseDetail.assigned_mobile_id || null;
+
     // Validate Step 3 before submitting
     const errors = validateCurrentStep(offenses);
     if (effectiveTypeOfOperation) {
@@ -1545,6 +1648,9 @@ function EBlotter() {
       finalCaseDetail.lng = caseDetail.lng ? parseFloat(caseDetail.lng) : null;
 
       finalCaseDetail.type_of_operation = effectiveTypeOfOperation;
+      finalCaseDetail.assigned_mobile_id = effectiveMobileUnitId
+        ? parseInt(effectiveMobileUnitId, 10)
+        : null;
 
       // crime_reports_v2 field renames
       finalCaseDetail.crime_type = finalCaseDetail.incident_type;
@@ -2020,6 +2126,14 @@ function EBlotter() {
                             {typeOfOperation || "—"}
                           </span>
                         </div>
+                        <div className="eb-view-item">
+                          <span className="eb-view-label">
+                            Assigned Mobile Unit:
+                          </span>
+                          <span className="eb-view-value">
+                            {viewMobileUnitName || "—"}
+                          </span>
+                        </div>
 
                         <div className="eb-view-item">
                           <span className="eb-view-label">Coordinates:</span>
@@ -2119,44 +2233,6 @@ function EBlotter() {
                         <option>Theft</option>
                       </select>
                       <FieldError error={fieldErrors.incident_type} />
-                    </div>
-
-                    <div className="eb-modal-form-group">
-                      <label className="eb-modal-label">Stage of Felony</label>
-                      <select
-                        className="eb-modal-input"
-                        value={offenses[0]?.stage_of_felony || ""}
-                        onChange={(e) => {
-                          updateOffense(0, "stage_of_felony", e.target.value);
-                        }}
-                      >
-                        <option value="">Select Stage</option>
-                        <option>CONSUMMATED</option>
-                        <option>ATTEMPTED</option>
-                        <option>FRUSTRATED</option>
-                      </select>
-                    </div>
-
-                    <div className="eb-modal-form-group">
-                      <label className="eb-modal-label">
-                        Report Number (optional)
-                      </label>
-                      <input
-                        type="text"
-                        className={`eb-modal-input ${fieldErrors.report_number ? "error" : ""}`}
-                        placeholder="Auto-generated if left blank"
-                        value={caseDetail.report_number || ""}
-                        maxLength="50"
-                        onChange={(e) => {
-                          updateCaseDetail("report_number", e.target.value);
-                          if (fieldErrors.report_number) {
-                            const n = { ...fieldErrors };
-                            delete n.report_number;
-                            setFieldErrors(n);
-                          }
-                        }}
-                      />
-                      <FieldError error={fieldErrors.report_number} />
                     </div>
 
                     <div className="eb-modal-form-group">
@@ -2280,6 +2356,44 @@ function EBlotter() {
                       )}
                     </div>
 
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">Stage of Felony</label>
+                      <select
+                        className="eb-modal-input"
+                        value={offenses[0]?.stage_of_felony || ""}
+                        onChange={(e) => {
+                          updateOffense(0, "stage_of_felony", e.target.value);
+                        }}
+                      >
+                        <option value="">Select Stage</option>
+                        <option>CONSUMMATED</option>
+                        <option>ATTEMPTED</option>
+                        <option>FRUSTRATED</option>
+                      </select>
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">
+                        Report Number (optional)
+                      </label>
+                      <input
+                        type="text"
+                        className={`eb-modal-input ${fieldErrors.report_number ? "error" : ""}`}
+                        placeholder="Auto-generated if left blank"
+                        value={caseDetail.report_number || ""}
+                        maxLength="50"
+                        onChange={(e) => {
+                          updateCaseDetail("report_number", e.target.value);
+                          if (fieldErrors.report_number) {
+                            const n = { ...fieldErrors };
+                            delete n.report_number;
+                            setFieldErrors(n);
+                          }
+                        }}
+                      />
+                      <FieldError error={fieldErrors.report_number} />
+                    </div>
+
                     {/* ── ROW 2: CASE ADMIN ── */}
                     <div className="eb-modal-form-group">
                       <label className="eb-modal-label">
@@ -2335,6 +2449,106 @@ function EBlotter() {
                         }}
                       />
                       <FieldError error={fieldErrors.date_time_reported} />
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <label className="eb-modal-label">Assigned Mobile Unit</label>
+                        {showAddMobileUnitInput && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddMobileUnitInput(false);
+                              setNewMobileUnitInput("");
+                              if (fieldErrors.assigned_mobile_id) {
+                                const n = { ...fieldErrors };
+                                delete n.assigned_mobile_id;
+                                setFieldErrors(n);
+                              }
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--navy-primary)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              padding: 0,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            ← Back to list
+                          </button>
+                        )}
+                      </div>
+                      {!showAddMobileUnitInput ? (
+                        <select
+                          className={`eb-modal-input ${fieldErrors.assigned_mobile_id ? "error" : ""}`}
+                          value={caseDetail.assigned_mobile_id || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "__add_new__") {
+                              setShowAddMobileUnitInput(true);
+                              setNewMobileUnitInput("");
+                              return;
+                            }
+                            updateCaseDetail("assigned_mobile_id", val);
+                            if (fieldErrors.assigned_mobile_id) {
+                              const n = { ...fieldErrors };
+                              delete n.assigned_mobile_id;
+                              setFieldErrors(n);
+                            }
+                          }}
+                        >
+                          <option value="">Unassigned</option>
+                          {mobileUnits.map((u) => (
+                            <option key={u.id} value={String(u.id)}>
+                              {u.unit_name}
+                            </option>
+                          ))}
+                          <option value="__add_new__">
+                            + Others (please specify)
+                          </option>
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          className={`eb-modal-input ${fieldErrors.assigned_mobile_id ? "error" : ""}`}
+                          placeholder="Type new mobile unit, then Submit Report"
+                          value={newMobileUnitInput}
+                          maxLength="150"
+                          autoFocus
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewMobileUnitInput(val);
+
+                            const trimmed = val.trim().toLowerCase();
+                            const isDuplicate =
+                              trimmed.length > 0 &&
+                              mobileUnits.some(
+                                (u) => u.unit_name.trim().toLowerCase() === trimmed,
+                              );
+
+                            setFieldErrors((prev) => {
+                              const n = { ...prev };
+                              if (isDuplicate) {
+                                n.assigned_mobile_id = `"${val.trim()}" already exists`;
+                              } else {
+                                delete n.assigned_mobile_id;
+                              }
+                              return n;
+                            });
+                          }}
+                          style={{ width: "100%", boxSizing: "border-box" }}
+                        />
+                      )}
+                      <FieldError error={fieldErrors.assigned_mobile_id} />
                     </div>
 
                     <div className="eb-modal-form-group"></div>

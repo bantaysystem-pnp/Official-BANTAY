@@ -235,11 +235,27 @@ const createModusForCrimeType = async (req, res) => {
         source: "Web Portal",
         ipAddress: getClientIp(req),
       });
+    } else if (result.reactivated) {
+      await logAudit({
+        userId: req.user?.user_id,
+        username: req.user?.username,
+        eventName: "Modus Restored (Blotter Form)",
+        description: `Restored modus "${trimmedModus}" for ${modusCrimeType}`,
+        action: "UPDATE",
+        status: "success",
+        source: "Web Portal",
+        ipAddress: getClientIp(req),
+      });
     }
 
     res.status(result.created ? 201 : 200).json({
       success: true,
-      data: { id: result.id, modus_name: trimmedModus, created: result.created },
+      data: {
+        id: result.id,
+        modus_name: trimmedModus,
+        created: result.created,
+        reactivated: result.reactivated,
+      },
     });
   } catch (error) {
     console.error("Create modus (blotter) error:", error);

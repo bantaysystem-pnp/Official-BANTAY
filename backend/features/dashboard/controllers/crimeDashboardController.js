@@ -76,6 +76,20 @@ const buildWhere = (query) => {
     }
   }
 
+    // Mobile unit filter — assigned_mobile_id is a plain int FK, no join needed
+  // for filtering. parseInt + isNaN guard means garbage input silently drops
+  // rather than throwing, consistent with how crime_types/barangays behave.
+  if (query.mobile_units) {
+    const unitIds = query.mobile_units
+      .split(",")
+      .map((v) => parseInt(v.trim(), 10))
+      .filter((v) => !isNaN(v));
+    if (unitIds.length > 0) {
+      conditions.push(`cr.assigned_mobile_id = ANY($${p++}::int[])`);
+      params.push(unitIds);
+    }
+  }
+
   // NOTE: no more status filtering here — cases_v2.status is a clean enum
   // ('Under Investigation' | 'Solved' | 'Cleared' | 'Referred') via CHECK
   // constraint, so there's no legacy-string cleanup needed like the old
@@ -466,6 +480,22 @@ const getPatrolUserBarangays = async (userId) => {
   }
 };
 
+// ─── MOBILE UNITS — for filter dropdown ───────────────────────────────────────
+const getMobileUnits = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, unit_name
+       FROM mobile_units
+       WHERE is_active = true
+       ORDER BY unit_name ASC`,
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("getMobileUnits error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const getOverview = async (req, res) => {
   try {
     let { where, params, nextP } = buildWhere(req.query);
@@ -660,4 +690,5 @@ module.exports = {
   getByModus,
   getCompleteData,
   getPatrolUserBarangays,
+  getMobileUnits, // ← add this
 };

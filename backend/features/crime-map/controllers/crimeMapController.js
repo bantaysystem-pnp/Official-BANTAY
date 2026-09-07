@@ -193,7 +193,7 @@ const getPins = async (req, res) => {
         cr.crime_type AS incident_type,
         cr.place_barangay,
         NULL AS place_street,
-        cr.type_of_place,
+        cr.type_of_operation,
         cmr.modus_name AS modus,
         c.status,
         cr.date_time_commission,

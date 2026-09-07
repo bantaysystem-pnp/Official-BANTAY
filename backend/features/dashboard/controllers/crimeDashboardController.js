@@ -330,15 +330,15 @@ const queryByDay = async (where, params, nextP) => {
 const queryPlace = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      TRIM(cr.type_of_place) AS place,
+      TRIM(cr.type_of_operation) AS place,
       UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
      ${BASE_FROM}
      ${where}
      AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
-       AND cr.type_of_place IS NOT NULL
-       AND TRIM(cr.type_of_place) <> ''
-     GROUP BY TRIM(cr.type_of_place), UPPER(cr.crime_type)
+       AND cr.type_of_operation IS NOT NULL
+       AND TRIM(cr.type_of_operation) <> ''
+     GROUP BY TRIM(cr.type_of_operation), UPPER(cr.crime_type)
      ORDER BY count DESC`,
     [...params, INDEX_CRIMES],
   );
@@ -410,7 +410,7 @@ const queryCompleteData = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
       TRIM(cr.place_barangay)      AS barangay,
-      TRIM(cr.type_of_place)       AS type_of_place,
+      TRIM(cr.type_of_operation)   AS type_of_place,
       TO_CHAR(cr.date_time_commission, 'MM/DD/YYYY') AS date,
       TO_CHAR(cr.date_time_commission, 'HH12:MI AM') AS time,
       UPPER(cr.crime_type)         AS crime_offense,

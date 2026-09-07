@@ -29,8 +29,8 @@ class CrimeReportV2 {
         `INSERT INTO crime_reports_v2 (
           report_number, crime_type, stage_of_felony, index_type,
           modus_reference_id, date_time_commission, date_time_reported,
-          place_barangay, type_of_place, lat, lng, created_by
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+          place_barangay, type_of_operation, lat, lng, assigned_mobile_id, created_by
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         RETURNING report_id`,
         [
           reportNumber,
@@ -41,9 +41,10 @@ class CrimeReportV2 {
           reportData.date_time_commission,
           reportData.date_time_reported,
           reportData.place_barangay,
-          reportData.type_of_place || null,
+          reportData.type_of_operation || null,
           reportData.lat || null,
           reportData.lng || null,
+          reportData.assigned_mobile_id || null,
           createdBy,
         ],
       );
@@ -84,13 +85,15 @@ class CrimeReportV2 {
       SELECT
         cr.report_id, cr.report_number, cr.crime_type, cr.stage_of_felony,
         cr.index_type, cr.place_barangay,
-        cr.type_of_place, cr.lat, cr.lng,
+        cr.type_of_operation, cr.lat, cr.lng,
+        cr.assigned_mobile_id, mu.unit_name AS assigned_mobile_name,
         TO_CHAR(cr.date_time_commission, 'YYYY-MM-DD"T"HH24:MI') as date_time_commission,
         TO_CHAR(cr.date_time_reported, 'YYYY-MM-DD"T"HH24:MI') as date_time_reported,
         cmr.modus_name,
         c.id as case_id, c.status, c.priority, c.assigned_io_id
       FROM crime_reports_v2 cr
       LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
+      LEFT JOIN mobile_units mu ON mu.id = cr.assigned_mobile_id
       LEFT JOIN cases_v2 c ON c.report_id = cr.report_id
       WHERE cr.is_deleted = false
     `;
@@ -133,7 +136,8 @@ class CrimeReportV2 {
       `SELECT
         cr.report_id, cr.report_number, cr.crime_type, cr.stage_of_felony,
         cr.index_type, cr.modus_reference_id,
-        cr.place_barangay, cr.type_of_place, cr.lat, cr.lng,
+        cr.place_barangay, cr.type_of_operation, cr.lat, cr.lng,
+        cr.assigned_mobile_id, mu.unit_name AS assigned_mobile_name,
         cr.created_by, cr.created_at, cr.updated_at, cr.is_deleted, cr.deleted_at,
         TO_CHAR(cr.date_time_commission, 'YYYY-MM-DD"T"HH24:MI') as date_time_commission,
         TO_CHAR(cr.date_time_reported, 'YYYY-MM-DD"T"HH24:MI') as date_time_reported,
@@ -141,6 +145,7 @@ class CrimeReportV2 {
         c.id as case_id, c.status, c.priority, c.assigned_io_id, c.updated_at as case_updated_at
        FROM crime_reports_v2 cr
        LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
+       LEFT JOIN mobile_units mu ON mu.id = cr.assigned_mobile_id
        LEFT JOIN cases_v2 c ON c.report_id = cr.report_id
        WHERE cr.report_id = $1 AND cr.is_deleted = false`,
       [reportId],
@@ -153,9 +158,10 @@ class CrimeReportV2 {
       `UPDATE crime_reports_v2 SET
         report_number = $1, crime_type = $2, stage_of_felony = $3, index_type = $4,
         modus_reference_id = $5, date_time_commission = $6, date_time_reported = $7,
-        place_barangay = $8, type_of_place = $9, lat = $10, lng = $11,
+        place_barangay = $8, type_of_operation = $9, lat = $10, lng = $11,
+        assigned_mobile_id = $12,
         updated_at = CURRENT_TIMESTAMP
-       WHERE report_id = $12 AND is_deleted = false
+       WHERE report_id = $13 AND is_deleted = false
        RETURNING *`,
       [
         reportData.report_number && reportData.report_number.trim()
@@ -168,9 +174,10 @@ class CrimeReportV2 {
         reportData.date_time_commission,
         reportData.date_time_reported,
         reportData.place_barangay,
-        reportData.type_of_place || null,
+        reportData.type_of_operation || null,
         reportData.lat || null,
         reportData.lng || null,
+        reportData.assigned_mobile_id || null,
         reportId,
       ],
     );
@@ -224,14 +231,91 @@ class CrimeReportV2 {
     return result.rows[0] || null;
   }
 
+  static async getAllTypeOfPlace() {
+    const result = await pool.query(
+      `SELECT id, place_name FROM type_of_place_reference
+       WHERE is_active = true ORDER BY place_name ASC`,
+    );
+    return result.rows;
+  }
+
+  static async findOrCreateTypeOfPlace(placeName) {
+    const existing = await pool.query(
+      `SELECT id, place_name FROM type_of_place_reference
+       WHERE LOWER(place_name) = LOWER($1)`,
+      [placeName],
+    );
+    if (existing.rows.length > 0) {
+      return {
+        id: existing.rows[0].id,
+        place_name: existing.rows[0].place_name,
+        created: false,
+      };
+    }
+    const inserted = await pool.query(
+      `INSERT INTO type_of_place_reference (place_name, is_active)
+       VALUES ($1, true) RETURNING id, place_name`,
+      [placeName],
+    );
+    return {
+      id: inserted.rows[0].id,
+      place_name: inserted.rows[0].place_name,
+      created: true,
+    };
+  }
+
+  static async getAllTypeOfOperation() {
+    const result = await pool.query(
+      `SELECT id, operation_name FROM type_of_operation_reference
+       WHERE is_active = true ORDER BY operation_name ASC`,
+    );
+    return result.rows;
+  }
+
+  static async findOrCreateTypeOfOperation(operationName) {
+    const existing = await pool.query(
+      `SELECT id, operation_name FROM type_of_operation_reference
+       WHERE LOWER(operation_name) = LOWER($1)`,
+      [operationName],
+    );
+    if (existing.rows.length > 0) {
+      return {
+        id: existing.rows[0].id,
+        operation_name: existing.rows[0].operation_name,
+        created: false,
+      };
+    }
+    const inserted = await pool.query(
+      `INSERT INTO type_of_operation_reference (operation_name, is_active)
+       VALUES ($1, true) RETURNING id, operation_name`,
+      [operationName],
+    );
+    return {
+      id: inserted.rows[0].id,
+      operation_name: inserted.rows[0].operation_name,
+      created: true,
+    };
+  }
+
   static async findOrCreateModus(crimeType, modusName) {
     const existing = await pool.query(
-      `SELECT id FROM crime_modus_reference
+      `SELECT id, is_active FROM crime_modus_reference
        WHERE UPPER(crime_type) = UPPER($1) AND LOWER(modus_name) = LOWER($2)`,
       [crimeType, modusName],
     );
     if (existing.rows.length > 0) {
-      return { id: existing.rows[0].id, created: false };
+      const row = existing.rows[0];
+      if (!row.is_active) {
+        // Name matches a removed modus — reactivate it instead of leaving a
+        // report pointing at an is_active=false reference row.
+        await pool.query(
+          `UPDATE crime_modus_reference SET is_active = true, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [row.id],
+        );
+        return { id: row.id, created: false, reactivated: true };
+      }
+      return { id: row.id, created: false, reactivated: false };
     }
     const inserted = await pool.query(
       `INSERT INTO crime_modus_reference (crime_type, modus_name, is_active)
@@ -239,7 +323,7 @@ class CrimeReportV2 {
        RETURNING id`,
       [crimeType.toUpperCase(), modusName],
     );
-    return { id: inserted.rows[0].id, created: true };
+    return { id: inserted.rows[0].id, created: true, reactivated: false };
   }
 }
 

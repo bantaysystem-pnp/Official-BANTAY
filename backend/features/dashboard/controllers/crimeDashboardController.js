@@ -76,6 +76,20 @@ const buildWhere = (query) => {
     }
   }
 
+    // Mobile unit filter — assigned_mobile_id is a plain int FK, no join needed
+  // for filtering. parseInt + isNaN guard means garbage input silently drops
+  // rather than throwing, consistent with how crime_types/barangays behave.
+  if (query.mobile_units) {
+    const unitIds = query.mobile_units
+      .split(",")
+      .map((v) => parseInt(v.trim(), 10))
+      .filter((v) => !isNaN(v));
+    if (unitIds.length > 0) {
+      conditions.push(`cr.assigned_mobile_id = ANY($${p++}::int[])`);
+      params.push(unitIds);
+    }
+  }
+
   // NOTE: no more status filtering here — cases_v2.status is a clean enum
   // ('Under Investigation' | 'Solved' | 'Cleared' | 'Referred') via CHECK
   // constraint, so there's no legacy-string cleanup needed like the old
@@ -330,15 +344,15 @@ const queryByDay = async (where, params, nextP) => {
 const queryPlace = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
-      TRIM(cr.type_of_place) AS place,
+      TRIM(cr.type_of_operation) AS place,
       UPPER(cr.crime_type) AS crime,
       COUNT(*) AS count
      ${BASE_FROM}
      ${where}
      AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
-       AND cr.type_of_place IS NOT NULL
-       AND TRIM(cr.type_of_place) <> ''
-     GROUP BY TRIM(cr.type_of_place), UPPER(cr.crime_type)
+       AND cr.type_of_operation IS NOT NULL
+       AND TRIM(cr.type_of_operation) <> ''
+     GROUP BY TRIM(cr.type_of_operation), UPPER(cr.crime_type)
      ORDER BY count DESC`,
     [...params, INDEX_CRIMES],
   );
@@ -410,7 +424,7 @@ const queryCompleteData = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
       TRIM(cr.place_barangay)      AS barangay,
-      TRIM(cr.type_of_place)       AS type_of_place,
+      TRIM(cr.type_of_operation)   AS type_of_place,
       TO_CHAR(cr.date_time_commission, 'MM/DD/YYYY') AS date,
       TO_CHAR(cr.date_time_commission, 'HH12:MI AM') AS time,
       UPPER(cr.crime_type)         AS crime_offense,
@@ -463,6 +477,22 @@ const getPatrolUserBarangays = async (userId) => {
   } catch (error) {
     console.error("getPatrolUserBarangays error:", error);
     return [];
+  }
+};
+
+// ─── MOBILE UNITS — for filter dropdown ───────────────────────────────────────
+const getMobileUnits = async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, unit_name
+       FROM mobile_units
+       WHERE is_active = true
+       ORDER BY unit_name ASC`,
+    );
+    res.json({ success: true, data: result.rows });
+  } catch (err) {
+    console.error("getMobileUnits error:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -660,4 +690,5 @@ module.exports = {
   getByModus,
   getCompleteData,
   getPatrolUserBarangays,
+  getMobileUnits, // ← add this
 };

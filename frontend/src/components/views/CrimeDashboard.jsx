@@ -163,13 +163,7 @@ const offsetDate = (days) => {
   return pht.toISOString().slice(0, 10);
 };
 
-const PRESETS = [
-  { label: "This Month", key: "this_month" },
-  { label: "1 Week", key: "7d" },
-  { label: "3 Months", key: "3m" },
-  { label: "1 Year", key: "365d" },
-  { label: "Custom", key: "custom" },
-];
+
 
 const getPresetRange = (key) => {
   const now = new Date();
@@ -250,19 +244,25 @@ const buildParams = (filters) => {
   if (filters.barangays?.length) {
     p.set("barangays", filters.barangays.join(","));
   }
+    if (filters.mobileUnits?.length) {
+    p.set("mobile_units", filters.mobileUnits.join(","));
+  }
   p.set("granularity", granularity);
   p.set("preset", filters.preset); // ← already exists, just confirm it's here
   return `?${p}`;
 };
 
 const BLANK_FILTERS = () => {
+  // Presets are gone; DEFAULT_PRESET is only used to seed the initial
+  // date window on first load. Everything after that is pure custom range.
   const range = getPresetRange(DEFAULT_PRESET);
   return {
-    preset: DEFAULT_PRESET,
+    preset: "custom",
     dateFrom: range.from,
     dateTo: range.to,
     crimeTypes: [],
     barangays: [],
+    mobileUnits: [], 
   };
 };
 
@@ -374,6 +374,99 @@ const CrimeTypeMultiSelect = ({ selected, onChange }) => {
                   onChange={() => toggle(c)}
                 />
                 <span>{CRIME_DISPLAY[c]}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── MOBILE UNIT MULTI-SELECT ─────────────────────────────────────────────────
+const MobileUnitMultiSelect = ({ options, selected, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (id) =>
+    onChange(
+      selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id],
+    );
+
+  const removeOne = (id, e) => {
+    e.stopPropagation();
+    onChange(selected.filter((x) => x !== id));
+  };
+
+  const toggleAll = () =>
+    onChange(selected.length === options.length ? [] : options.map((o) => o.id));
+
+  const isAll = selected.length === 0;
+  const allSelected = options.length > 0 && selected.length === options.length;
+
+  const labelFor = (id) => options.find((o) => o.id === id)?.unit_name || id;
+
+  return (
+    <div className="cd-brgy-ms-wrap" ref={ref}>
+      <div className="cd-brgy-ms-trigger" onClick={() => setOpen((v) => !v)}>
+        {isAll ? (
+          <span className="cd-brgy-ms-placeholder">All Mobile Units</span>
+        ) : (
+          <div className="cd-brgy-ms-pills">
+            {selected.slice(0, 2).map((id) => (
+              <span key={id} className="cd-brgy-pill">
+                {labelFor(id)}
+                <span className="cd-pill-x" onClick={(e) => removeOne(id, e)}>
+                  ×
+                </span>
+              </span>
+            ))}
+            {selected.length > 2 && (
+              <span className="cd-brgy-pill cd-pill-more">
+                +{selected.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+        <span className="cd-brgy-ms-arrow">{open ? "▲" : "▼"}</span>
+      </div>
+
+      {open && (
+        <div className="cd-brgy-ms-dropdown">
+          <div className="cd-brgy-ms-actions">
+            <button onClick={toggleAll} className="cd-brgy-ms-action-btn">
+              {allSelected ? "Clear all" : "Select all"}
+            </button>
+            {selected.length > 0 && (
+              <button
+                onClick={() => onChange([])}
+                className="cd-brgy-ms-action-btn cd-brgy-ms-clear"
+              >
+                Clear ({selected.length})
+              </button>
+            )}
+          </div>
+
+          <div className="cd-brgy-ms-list">
+            {options.length === 0 && (
+              <div className="cd-brgy-ms-empty">No mobile units found</div>
+            )}
+            {options.map((o) => (
+              <label key={o.id} className="cd-brgy-ms-item">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(o.id)}
+                  onChange={() => toggle(o.id)}
+                />
+                <span>{o.unit_name}</span>
               </label>
             ))}
           </div>
@@ -568,6 +661,7 @@ const FilterBar = ({
   isPatrol = false,
   hasPatrolAssignment = false,
   patrolAssignedBarangays = [],
+  mobileUnitOptions = [],
 }) => {
   const [expanded, setExpanded] = useState(true);
   const [draft, setDraft] = useState(() => ({ ...appliedFilters }));
@@ -583,24 +677,7 @@ const FilterBar = ({
     }
   }, [appliedFilters]);
 
-  const handlePreset = (key) => {
-    if (key === "custom") {
-      setDraft((f) => ({ ...f, preset: "custom" }));
-      setDateError("");
-      return;
-    }
 
-    const range = getPresetRange(key);
-    if (range) {
-      setDraft((f) => ({
-        ...f,
-        preset: key,
-        dateFrom: range.from,
-        dateTo: range.to,
-      }));
-      setDateError("");
-    }
-  };
 
   const validateDates = (from, to) => {
     if (!from || !to) return "Please select both start and end dates.";
@@ -649,10 +726,13 @@ const FilterBar = ({
   };
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(appliedFilters);
+  const defaultRange = getPresetRange(DEFAULT_PRESET); // seeded initial window
   const isDefault =
-    draft.preset === DEFAULT_PRESET &&
+    draft.dateFrom === defaultRange.from &&
+    draft.dateTo === defaultRange.to &&
     !draft.crimeTypes.length &&
-    !draft.barangays.length;
+    !draft.barangays.length &&
+    !draft.mobileUnits.length;
 
   return (
     <div
@@ -696,66 +776,47 @@ const FilterBar = ({
           <div className="cd-preset-row">
             <span className="cd-preset-label">Date Range</span>
 
-            <div className="cd-preset-btns">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.key}
-                  className={`cd-preset-btn ${draft.preset === p.key ? "cd-preset-btn-active" : ""}`}
-                  onClick={() => handlePreset(p.key)}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-
-            {draft.preset === "custom" && (
-              <div className="cd-custom-range-wrap">
-                <div className="cd-custom-range">
-                  <input
-                    type="date"
-                    value={draft.dateFrom}
-                    max={
-                      draft.dateTo
-                        ? (() => {
-                            const d = new Date(draft.dateTo);
-                            d.setDate(d.getDate() - 6);
-                            return d.toISOString().slice(0, 10);
-                          })()
-                        : todayIso()
-                    }
-                    onChange={(e) => handleDateFrom(e.target.value)}
-                  />
-                  <span className="cd-range-sep">→</span>
-                  <input
-                    type="date"
-                    value={draft.dateTo}
-                    min={
-                      draft.dateFrom
-                        ? (() => {
-                            const d = new Date(draft.dateFrom);
-                            d.setDate(d.getDate() + 6);
-                            return d.toISOString().slice(0, 10);
-                          })()
-                        : undefined
-                    }
-                    max={todayIso()}
-                    onChange={(e) => handleDateTo(e.target.value)}
-                  />
-                </div>
-
-                {dateError && (
-                  <div className="cd-date-error">
-                    <span className="cd-date-error-icon">⚠</span> {dateError}
-                  </div>
-                )}
+            {/* Presets removed — custom range is now the only input */}
+            <div className="cd-custom-range-wrap">
+              <div className="cd-custom-range">
+                <input
+                  type="date"
+                  value={draft.dateFrom}
+                  max={
+                    draft.dateTo
+                      ? (() => {
+                          const d = new Date(draft.dateTo);
+                          d.setDate(d.getDate() - 6);
+                          return d.toISOString().slice(0, 10);
+                        })()
+                      : todayIso()
+                  }
+                  onChange={(e) => handleDateFrom(e.target.value)}
+                />
+                <span className="cd-range-sep">→</span>
+                <input
+                  type="date"
+                  value={draft.dateTo}
+                  min={
+                    draft.dateFrom
+                      ? (() => {
+                          const d = new Date(draft.dateFrom);
+                          d.setDate(d.getDate() + 6);
+                          return d.toISOString().slice(0, 10);
+                        })()
+                      : undefined
+                  }
+                  max={todayIso()}
+                  onChange={(e) => handleDateTo(e.target.value)}
+                />
               </div>
-            )}
 
-            {draft.preset !== "custom" && (
-              <span className="cd-preset-range-display">
-                {fmtDate(draft.dateFrom)} — {fmtDate(draft.dateTo)}
-              </span>
-            )}
+              {dateError && (
+                <div className="cd-date-error">
+                  <span className="cd-date-error-icon">⚠</span> {dateError}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="cd-filter-grid">
@@ -800,6 +861,15 @@ const FilterBar = ({
                   }
                 />
               )}
+            </div>
+
+                        <div className="cd-filter-group">
+              <label>Mobile Unit</label>
+              <MobileUnitMultiSelect
+                options={mobileUnitOptions}
+                selected={draft.mobileUnits}
+                onChange={(val) => setDraft((f) => ({ ...f, mobileUnits: val }))}
+              />
             </div>
 
             <div className="cd-filter-group-actions">
@@ -2692,6 +2762,19 @@ const CrimeDashboard = () => {
   const [barangayForecast, setBarangayForecast] = useState(null);
   const [pendingDayCount, setPendingDayCount] = useState(0);
 
+    const [mobileUnitOptions, setMobileUnitOptions] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API}/mobile-units`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setMobileUnitOptions(json.data);
+      })
+      .catch((err) => console.warn("Failed to load mobile units:", err));
+  }, []);
+
   const fetchIdRef = useRef(0);
 
   // Check patrol assignment on mount
@@ -3070,7 +3153,7 @@ const handleGenerateAssessment = () => {
         )}
       </div>
 
-      <FilterBar
+            <FilterBar
         appliedFilters={appliedFilters}
         onApply={handleApply}
         isBarangayUser={isBarangayUser}
@@ -3078,6 +3161,7 @@ const handleGenerateAssessment = () => {
         isPatrol={isPatrol}
         hasPatrolAssignment={hasPatrolAssignment}
         patrolAssignedBarangays={patrolAssignedBarangays}
+        mobileUnitOptions={mobileUnitOptions}
       />
 
       <SummaryCards

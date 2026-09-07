@@ -1,3 +1,4 @@
+// frontend\src\App.jsx
 import {
   BrowserRouter as Router,
   Routes,
@@ -6,43 +7,19 @@ import {
 } from "react-router-dom";
 import LoginSystem from "./components/views/LoginSystem";
 import ModusManagement from "./components/views/ModusManagement";
+import MobileUnitManagement from "./components/views/MobileUnitManagement";
 import CrimeDashboard from "./components/views/CrimeDashboard";
 import EBlotter from "./components/views/EBlotter";
 import CaseManagement from "./components/views/CaseManagement";
 import CrimeMapping from "./components/views/CrimeMapping";
-import PatrolDashboard from "./components/views/PatrolDashboard";
-import PatrollerDashboardView from "./components/views/PatrollerDashboardView";
-import PatrolScheduling from "./components/views/PatrolScheduling";
 import UserManagement from "./components/views/UserManagement";
 import ProfileSettings from "./components/views/ProfileSettings";
-import BrgyReport from "./components/views/BrgyReport";
 import VerificationSuccess from "./components/views/VerificationSucess";
-import AfterPatrol from "./components/views/AfterPatrol";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PageLayout from "./components/layout/PageLayout.jsx";
-import PatrollerDashboard from "./components/views/PatrolDashboard";
-import ResidentManagement from "./components/views/ResidentManagement";
 import AuditLog from "./components/views/AuditLog";
 
-const getRole = () => {
-  const raw = localStorage.getItem("token");
-  if (!raw) return null;
-  try {
-    const b64 = raw.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    return JSON.parse(atob(b64))?.role ?? null;
-  } catch {
-    return null;
-  }
-};
 
-const RoleBasedPatrolDashboard = () => {
-  const role = getRole();
-  return role === "Administrator" || role === "Technical Administrator" ? (
-    <PatrolScheduling />
-  ) : (
-    <PatrollerDashboardView />
-  );
-};
 
 function App() {
   return (
@@ -64,18 +41,10 @@ function App() {
           <Route path="/e-blotter" element={<EBlotter />} />
           <Route path="/case-management" element={<CaseManagement />} />
           <Route path="/crime-mapping" element={<CrimeMapping />} />
-          <Route path="/patrol-dashboard" element={<PatrollerDashboard />} />
-          <Route
-            path="/patrol-scheduling"
-            element={<RoleBasedPatrolDashboard />}
-          />
-          <Route path="/after-patrol" element={<AfterPatrol />} />
           <Route path="/user-management" element={<UserManagement />} />
-          
           <Route path="/profile" element={<ProfileSettings />} />
           <Route path="/modus-management" element={<ModusManagement />} />
-          <Route path="/brgy-report" element={<BrgyReport />} />
-          <Route path="/resident-management" element={<ResidentManagement />} />
+          <Route path="/mobile-unit-management" element={<MobileUnitManagement />} />
           <Route path="/audit-log" element={<AuditLog />} />
         </Route>
 

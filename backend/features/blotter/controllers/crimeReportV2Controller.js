@@ -12,7 +12,7 @@ const VALID_CRIME_TYPES = [
   "Physical Injury", "Rape", "Robbery", "Special Complex Crime", "Theft",
 ];
 
-const VALID_TYPE_OF_PLACE = [
+const VALID_TYPE_OF_OPERATION = [
   "Abandoned Structure (house, bldg, apartment/condo)",
   "Along the street",
   "Commercial/Business Establishment",
@@ -205,6 +205,156 @@ const getDeletedCrimeReports = async (req, res) => {
   }
 };
 
+// Creates a new modus on the fly (used by the "Others, please specify" option in the blotter form)
+const createModusForCrimeType = async (req, res) => {
+  try {
+    const { crime_type, modus_name } = req.body;
+
+    if (!crime_type || !VALID_CRIME_TYPES.includes(crime_type)) {
+      return res.status(400).json({ success: false, message: "Invalid or missing crime type" });
+    }
+    const trimmedModus = (modus_name || "").trim();
+    if (!trimmedModus) {
+      return res.status(400).json({ success: false, message: "Modus name is required" });
+    }
+    if (trimmedModus.length > 100) {
+      return res.status(400).json({ success: false, message: "Modus name too long (max 100 characters)" });
+    }
+
+    const modusCrimeType = OFFENSE_TO_MODUS_CRIME_TYPE[crime_type];
+    const result = await CrimeReportV2.findOrCreateModus(modusCrimeType, trimmedModus);
+
+    if (result.created) {
+      await logAudit({
+        userId: req.user?.user_id,
+        username: req.user?.username,
+        eventName: "Modus Auto-Created (Blotter Form)",
+        description: `Created modus "${trimmedModus}" for ${modusCrimeType}`,
+        action: "CREATE",
+        status: "success",
+        source: "Web Portal",
+        ipAddress: getClientIp(req),
+      });
+    } else if (result.reactivated) {
+      await logAudit({
+        userId: req.user?.user_id,
+        username: req.user?.username,
+        eventName: "Modus Restored (Blotter Form)",
+        description: `Restored modus "${trimmedModus}" for ${modusCrimeType}`,
+        action: "UPDATE",
+        status: "success",
+        source: "Web Portal",
+        ipAddress: getClientIp(req),
+      });
+    }
+
+    res.status(result.created ? 201 : 200).json({
+      success: true,
+      data: {
+        id: result.id,
+        modus_name: trimmedModus,
+        created: result.created,
+        reactivated: result.reactivated,
+      },
+    });
+  } catch (error) {
+    console.error("Create modus (blotter) error:", error);
+    res.status(500).json({ success: false, message: "Error creating modus", error: error.message });
+  }
+};
+
+const getTypeOfPlaceOptions = async (req, res) => {
+  try {
+    const rows = await CrimeReportV2.getAllTypeOfPlace();
+    res.status(200).json({ success: true, data: rows });
+  } catch (error) {
+    console.error("Get type of place error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Creates a new Type of Place on the fly (used by the "Others, please specify" option in the blotter form)
+const createTypeOfPlaceEntry = async (req, res) => {
+  try {
+    const trimmed = (req.body.place_name || "").trim();
+    if (!trimmed) {
+      return res.status(400).json({ success: false, message: "Type of Place is required" });
+    }
+    if (trimmed.length > 100) {
+      return res.status(400).json({ success: false, message: "Type of Place too long (max 150 characters)" });
+    }
+
+    const result = await CrimeReportV2.findOrCreateTypeOfPlace(trimmed);
+
+    if (result.created) {
+      await logAudit({
+        userId: req.user?.user_id,
+        username: req.user?.username,
+        eventName: "Type of Place Auto-Created (Blotter Form)",
+        description: `Created Type of Place "${trimmed}"`,
+        action: "CREATE",
+        status: "success",
+        source: "Web Portal",
+        ipAddress: getClientIp(req),
+      });
+    }
+
+    res.status(result.created ? 201 : 200).json({
+      success: true,
+      data: { id: result.id, place_name: result.place_name, created: result.created },
+    });
+  } catch (error) {
+    console.error("Create type of place error:", error);
+    res.status(500).json({ success: false, message: "Error creating type of place", error: error.message });
+  }
+};
+
+const getTypeOfOperationOptions = async (req, res) => {
+  try {
+    const rows = await CrimeReportV2.getAllTypeOfOperation();
+    res.status(200).json({ success: true, data: rows });
+  } catch (error) {
+    console.error("Get type of operation error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// Creates a new Type of Operation on the fly (used by the "Others, please specify" option in the blotter form)
+const createTypeOfOperationEntry = async (req, res) => {
+  try {
+    const trimmed = (req.body.operation_name || "").trim();
+    if (!trimmed) {
+      return res.status(400).json({ success: false, message: "Type of Operation is required" });
+    }
+    if (trimmed.length > 100) {
+      return res.status(400).json({ success: false, message: "Type of Operation too long (max 100 characters)" });
+    }
+
+    const result = await CrimeReportV2.findOrCreateTypeOfOperation(trimmed);
+
+    if (result.created) {
+      await logAudit({
+        userId: req.user?.user_id,
+        username: req.user?.username,
+        eventName: "Type of Operation Auto-Created (Blotter Form)",
+        description: `Created Type of Operation "${trimmed}"`,
+        action: "CREATE",
+        status: "success",
+        source: "Web Portal",
+        ipAddress: getClientIp(req),
+      });
+    }
+
+    res.status(result.created ? 201 : 200).json({
+      success: true,
+      data: { id: result.id, operation_name: result.operation_name, created: result.created },
+    });
+  } catch (error) {
+    console.error("Create type of operation error:", error);
+    res.status(500).json({ success: false, message: "Error creating type of operation", error: error.message });
+  }
+};
+
 const getModusByCrimeType = async (req, res) => {
   try {
     const { crimeType } = req.params;
@@ -318,15 +468,15 @@ const importCrimeReports = async (req, res) => {
         }
       }
 
-      let typeOfPlace = null;
-      const rawTypeOfPlace = String(row.typeofPlace || "").trim();
-      if (rawTypeOfPlace) {
-        typeOfPlace = VALID_TYPE_OF_PLACE.find(
-          (t) => t.toLowerCase() === rawTypeOfPlace.toLowerCase(),
+      let typeOfOperation = null;
+      const rawTypeOfOperation = String(row.typeofPlace || "").trim(); // Excel template column header unchanged for backward compatibility
+      if (rawTypeOfOperation) {
+        typeOfOperation = VALID_TYPE_OF_OPERATION.find(
+          (t) => t.toLowerCase() === rawTypeOfOperation.toLowerCase(),
         );
       }
-      if (!typeOfPlace) {
-        errors.push({ row: rowNum, field: "TYPE_OF_PLACE", message: `Unrecognized Type of Place: "${row.typeofPlace}"` });
+      if (!typeOfOperation) {
+        errors.push({ row: rowNum, field: "TYPE_OF_OPERATION", message: `Unrecognized Type of Operation: "${row.typeofPlace}"` });
         continue;
       }
 
@@ -350,7 +500,7 @@ const importCrimeReports = async (req, res) => {
         date_time_commission: dateTimeCommission,
         date_time_reported: dateTimeCommission,
         place_barangay: barangay,
-        type_of_place: typeOfPlace,
+        type_of_operation: typeOfOperation,
         lat: row.lat || null,
         lng: row.lng || null,
       };
@@ -419,4 +569,7 @@ module.exports = {
   restoreCrimeReport,
   getModusByCrimeType,
   importCrimeReports,
+  createModusForCrimeType,
+  getTypeOfOperationOptions,
+  createTypeOfOperationEntry,
 };

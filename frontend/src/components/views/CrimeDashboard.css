@@ -691,7 +691,7 @@ body {
 /* === FILTER GRID — 3 columns, left-aligned === */
 .cd-filter-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr auto;
   gap: 16px;
   align-items: end;
 }

@@ -39,6 +39,12 @@ export const navItems = [
         path: "/modus-management",
         icon: `<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`,
       },
+      {
+        key: "mobile-unit-management",
+        label: "Mobile Unit Management",
+        path: "/mobile-unit-management",
+        icon: `<rect x="1" y="6" width="15" height="10" rx="1"/><polygon points="16,10 20,10 23,13 23,16 16,16"/><circle cx="5.5" cy="18" r="2"/><circle cx="18.5" cy="18" r="2"/>`,
+      },
     ],
   },
   

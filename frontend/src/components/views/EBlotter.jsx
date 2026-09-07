@@ -14,7 +14,6 @@ import LoadingModal from "../modals/LoadingModal";
 import ExportBlotterModal from "../modals/ExportBlotterModal";
 import PdfPreviewModal from "../modals/PdfPreviewModal";
 
-
 // ─── FEATURE FLAGS ────────────────────────────────────────────────────────
 const SHOW_IMPORT_BUTTON = true; // Set to false to hide Import button + disable the import modal
 
@@ -205,12 +204,16 @@ function EBlotter() {
   const [showConfirmClose, setShowConfirmClose] = useState(false);
   const [showTrash, setShowTrash] = useState(false);
   const [deletedBlotters, setDeletedBlotters] = useState([]);
-  
+
   const [trashLoading, setTrashLoading] = useState(false);
 
   const [offenseModus, setOffenseModus] = useState({});
   const [offenseSelectedModus, setOffenseSelectedModus] = useState({});
-  const [typeOfPlace, setTypeOfPlace] = useState("");
+  const [typeOfOperation, setTypeOfOperation] = useState("");
+  const [typeOfOperationOptions, setTypeOfOperationOptions] = useState([]);
+  const [newTypeOfOperationInput, setNewTypeOfOperationInput] = useState("");
+  const [addingTypeOfOperation, setAddingTypeOfOperation] = useState(false);
+  const [showAddTypeOfOperationInput, setShowAddTypeOfOperationInput] = useState(false);
   const [streetSuggestions, setStreetSuggestions] = useState([]);
   const [showStreetDropdown, setShowStreetDropdown] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -221,13 +224,26 @@ function EBlotter() {
     message: "",
     type: "success",
   });
-  
+
+  const [newModusInput, setNewModusInput] = useState("");
+  const [addingModus, setAddingModus] = useState(false);
+  const [showAddModusInput, setShowAddModusInput] = useState(false);
+
+  const [typeOfPlaceOptions, setTypeOfPlaceOptions] = useState([]);
+  const [newTypeOfPlaceInput, setNewTypeOfPlaceInput] = useState("");
+  const [addingTypeOfPlace, setAddingTypeOfPlace] = useState(false);
+  const [showAddTypeOfPlaceInput, setShowAddTypeOfPlaceInput] = useState(false);
+
+  const [mobileUnits, setMobileUnits] = useState([]);
+  const [newMobileUnitInput, setNewMobileUnitInput] = useState("");
+  const [addingMobileUnit, setAddingMobileUnit] = useState(false);
+  const [showAddMobileUnitInput, setShowAddMobileUnitInput] = useState(false);
+
   const [pendingExport, setPendingExport] = useState(null);
-  
+
   const fetchControllerRef = useRef(null);
   const activeReportTabRef = useRef("reports"); // ADD THIS
-          
-  
+
   const showReactToast = (message, type = "success") => {
     setReactToast({ show: true, message, type });
     setTimeout(
@@ -236,8 +252,6 @@ function EBlotter() {
     );
   };
 
-      
-    
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExportLoading, setIsExportLoading] = useState(false);
   const [pdfPreview, setPdfPreview] = useState(null);
@@ -263,9 +277,6 @@ function EBlotter() {
     id: null,
     message: "",
   });
-  
-
-
 
   const [caseProvinces, setCaseProvinces] = useState([]);
   const [caseCities, setCaseCities] = useState([]);
@@ -273,9 +284,8 @@ function EBlotter() {
   const [loadingBacoorBrgy, setLoadingBacoorBrgy] = useState(false);
   const [barangayGeoJSON, setBarangayGeoJSON] = useState(null);
   const [selectedBrgyFeature, setSelectedBrgyFeature] = useState(null);
+  const [viewMobileUnitName, setViewMobileUnitName] = useState("");
   const mapRef = React.useRef(null);
-
-  
 
   const [offenses, setOffenses] = useState([
     {
@@ -305,14 +315,13 @@ function EBlotter() {
     report_number: "",
     lat: "",
     lng: "",
+    assigned_mobile_id: "",
   });
 
   const [currentUserId, setCurrentUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
-
-      
 
   useEffect(() => {
     try {
@@ -325,6 +334,78 @@ function EBlotter() {
     } catch {}
   }, []);
 
+  useEffect(() => {
+    const fetchTypeOfOperationOptions = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/blotters/type-of-operation`,
+          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } },
+        );
+        const data = await res.json();
+        if (data.success) setTypeOfOperationOptions(data.data);
+      } catch (err) {
+        console.error("Failed to load Type of Operation options:", err);
+      }
+    };
+    fetchTypeOfOperationOptions();
+  }, []);
+
+  useEffect(() => {
+    const fetchTypeOfOperationOptions = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/blotters/type-of-operation`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          },
+        );
+        const data = await res.json();
+        if (data.success) setTypeOfOperationOptions(data.data);
+      } catch (err) {
+        console.error("Failed to load Type of Operation options:", err);
+      }
+    };
+    fetchTypeOfOperationOptions();
+  }, []);
+
+  useEffect(() => {
+    const fetchTypeOfPlaceOptions = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/blotters/type-of-place`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          },
+        );
+        const data = await res.json();
+        if (data.success) setTypeOfPlaceOptions(data.data);
+      } catch (err) {
+        console.error("Failed to load Type of Place options:", err);
+      }
+    };
+    fetchTypeOfPlaceOptions();
+  }, []);
+
+  useEffect(() => {
+    const fetchMobileUnits = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/mobile-units`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const data = await res.json();
+        // Blotter form only offers currently-active units for assignment —
+        // Mobile Unit Management is where units get removed/restored.
+        if (data.success) setMobileUnits(data.data.filter((u) => u.is_active));
+      } catch (err) {
+        console.error("Failed to load Mobile Units:", err);
+      }
+    };
+    fetchMobileUnits();
+  }, []);
 
   const API_URL = `${import.meta.env.VITE_API_URL}/blotters`;
 
@@ -447,8 +528,6 @@ function EBlotter() {
     const CALABARZON_CODE = "040000000";
     const CAVITE_CODE = "042100000";
 
-
-
     fetch("/bacoor_barangays.geojson")
       .then((r) => r.json())
       .then((data) => {
@@ -461,7 +540,6 @@ function EBlotter() {
         setBacoorBarangays(brgyList);
       })
       .catch((err) => console.error("Failed to load barangay GeoJSON:", err));
-
   }, [activeReportTab]);
 
   // AFTER
@@ -494,8 +572,6 @@ function EBlotter() {
       if (f.date_from) queryParams.append("date_from", f.date_from);
       if (f.date_to) queryParams.append("date_to", f.date_to);
       if (f.barangay) queryParams.append("barangay", f.barangay);
-
-
 
       const rawResponse = await fetch(`${API_URL}?${queryParams}`, {
         headers: {
@@ -650,6 +726,196 @@ function EBlotter() {
       console.error("Modus fetch error:", err);
     }
   };
+  // silent=true suppresses the success toast — used when auto-triggered from Submit,
+  // where the report-saved toast already confirms success and a second toast is noise.
+  const handleAddNewModus = async (silent = false) => {
+    const trimmed = newModusInput.trim();
+    if (!trimmed || !caseDetail.incident_type) return false;
+
+    setAddingModus(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/blotters/modus`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({
+            crime_type: caseDetail.incident_type,
+            modus_name: trimmed,
+          }),
+        },
+      );
+      const data = await res.json();
+
+      if (data.success) {
+        const newEntry = { id: data.data.id, modus_name: trimmed };
+        setOffenseModus((prev) => {
+          const existing = prev[0] || [];
+          const alreadyThere = existing.some((m) => m.id === newEntry.id);
+          return {
+            ...prev,
+            [0]: alreadyThere ? existing : [...existing, newEntry],
+          };
+        });
+        setOffenseSelectedModus((prev) => ({ ...prev, [0]: [newEntry.id] }));
+        setShowAddModusInput(false);
+        setNewModusInput("");
+        if (fieldErrors.modus) {
+          const n = { ...fieldErrors };
+          delete n.modus;
+          setFieldErrors(n);
+        }
+        if (!silent) {
+          showReactToast(
+            data.data.created
+              ? "New modus added."
+              : data.data.reactivated
+                ? `"${trimmed}" was removed before — restored it for you.`
+                : "That modus already existed — selected it for you.",
+            "success",
+          );
+        }
+        return newEntry.id;
+      } else {
+        showReactToast(data.message || "Failed to add modus.", "error");
+        return null;
+      }
+    } catch (err) {
+      console.error("Add modus error:", err);
+      showReactToast("Failed to add modus. Check your connection.", "error");
+      return null;
+    } finally {
+      setAddingModus(false);
+    }
+  };
+
+  // silent=true suppresses the success toast — used when auto-triggered from Submit
+  const handleAddNewTypeOfOperation = async (silent = false) => {
+    const trimmed = newTypeOfOperationInput.trim();
+    if (!trimmed) return null;
+
+    setAddingTypeOfOperation(true);
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/blotters/type-of-operation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+          body: JSON.stringify({ operation_name: trimmed }),
+        },
+      );
+      const data = await res.json();
+
+      if (data.success) {
+        const newEntry = {
+          id: data.data.id,
+          operation_name: data.data.operation_name,
+        };
+        setTypeOfOperationOptions((prev) => {
+          const alreadyThere = prev.some((o) => o.id === newEntry.id);
+          return alreadyThere
+            ? prev
+            : [...prev, newEntry].sort((a, b) =>
+                a.operation_name.localeCompare(b.operation_name),
+              );
+        });
+        setTypeOfOperation(newEntry.operation_name);
+        setShowAddTypeOfOperationInput(false);
+        setNewTypeOfOperationInput("");
+        if (fieldErrors.type_of_place) {
+          const n = { ...fieldErrors };
+          delete n.type_of_place;
+          setFieldErrors(n);
+        }
+        if (!silent) {
+          showReactToast(
+            data.data.created
+              ? "New Type of Operation added."
+              : "That Type of Operation already existed — selected it for you.",
+            "success",
+          );
+        }
+        return newEntry.operation_name;
+      } else {
+        showReactToast(
+          data.message || "Failed to add Type of Operation.",
+          "error",
+        );
+        return null;
+      }
+    } catch (err) {
+      console.error("Add type of operation error:", err);
+      showReactToast(
+        "Failed to add Type of Operation. Check your connection.",
+        "error",
+      );
+      return null;
+    } finally {
+      setAddingTypeOfOperation(false);
+    }
+  };
+
+  // silent=true suppresses the success toast — used when auto-triggered from Submit
+  const handleAddNewMobileUnit = async (silent = false) => {
+    const trimmed = newMobileUnitInput.trim();
+    if (!trimmed) return null;
+
+    setAddingMobileUnit(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/mobile-units`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+        body: JSON.stringify({ unit_name: trimmed }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        const newEntry = { id: data.data.id, unit_name: data.data.unit_name, is_active: true };
+        setMobileUnits((prev) => {
+          const alreadyThere = prev.some((u) => u.id === newEntry.id);
+          return alreadyThere
+            ? prev
+            : [...prev, newEntry].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+        });
+        updateCaseDetail("assigned_mobile_id", String(newEntry.id));
+        setShowAddMobileUnitInput(false);
+        setNewMobileUnitInput("");
+        if (fieldErrors.assigned_mobile_id) {
+          const n = { ...fieldErrors };
+          delete n.assigned_mobile_id;
+          setFieldErrors(n);
+        }
+        if (!silent) {
+          showReactToast(
+            data.data.reactivated
+              ? `"${newEntry.unit_name}" was removed before — restored it for you.`
+              : "New mobile unit added.",
+            "success",
+          );
+        }
+        return newEntry.id;
+      } else {
+        showReactToast(data.message || "Failed to add mobile unit.", "error");
+        return null;
+      }
+    } catch (err) {
+      console.error("Add mobile unit error:", err);
+      showReactToast("Failed to add mobile unit. Check your connection.", "error");
+      return null;
+    } finally {
+      setAddingMobileUnit(false);
+    }
+  };
+
   const fetchStreetSuggestions = async (query) => {
     if (!query || query.trim().length < 2) {
       setStreetSuggestions([]);
@@ -731,34 +997,30 @@ function EBlotter() {
   };
 
   useEffect(() => {
-    
-      if (caseDetail.incident_type) {
-        // Always sync offense_name
-        setOffenses((prev) => {
-          const updated = [...prev];
-          if (!updated[0]) return prev;
-          updated[0] = {
-            ...updated[0],
-            offense_name: caseDetail.incident_type,
-            index_type: "Index",
-          };
-          return updated;
-        });
-        // Always fetch modus if not already loaded for this crime type
-        if (!offenseModus[0] || offenseModus[0].length === 0) {
-          fetchModusForIncidentType(caseDetail.incident_type, true);
-        }
+    if (caseDetail.incident_type) {
+      // Always sync offense_name
+      setOffenses((prev) => {
+        const updated = [...prev];
+        if (!updated[0]) return prev;
+        updated[0] = {
+          ...updated[0],
+          offense_name: caseDetail.incident_type,
+          index_type: "Index",
+        };
+        return updated;
+      });
+      // Always fetch modus if not already loaded for this crime type
+      if (!offenseModus[0] || offenseModus[0].length === 0) {
+        fetchModusForIncidentType(caseDetail.incident_type, true);
       }
-    
+    }
   }, [caseDetail.incident_type]);
-
-  
 
   useEffect(() => {
     activeReportTabRef.current = activeReportTab;
   }, [activeReportTab]);
 
-    const handleEdit = async (blotterId) => {
+  const handleEdit = async (blotterId) => {
     setFetchingEdit(true);
     try {
       const response = await fetch(`${API_URL}/${blotterId}`, {
@@ -770,7 +1032,6 @@ function EBlotter() {
 
       if (data.success) {
         // v2 has no complainants/suspects storage yet — keep these empty
-
 
         // v2 stores one flat offense on the report row, not an offenses array
         const normalizedOffenses = data.data.offenses
@@ -791,7 +1052,7 @@ function EBlotter() {
               },
             ];
         setOffenses(normalizedOffenses);
-        setTypeOfPlace(data.data.type_of_place || "");
+        setTypeOfOperation(data.data.type_of_operation || "");
 
         const newOffenseModus = {};
         const newOffenseSelectedModus = {};
@@ -838,6 +1099,10 @@ function EBlotter() {
           report_number: data.data.report_number || "",
           lat: data.data.lat != null ? String(data.data.lat) : "",
           lng: data.data.lng != null ? String(data.data.lng) : "",
+          assigned_mobile_id:
+            data.data.assigned_mobile_id != null
+              ? String(data.data.assigned_mobile_id)
+              : "",
         });
 
         if (resolvedBrgy && barangayGeoJSON) {
@@ -866,8 +1131,6 @@ function EBlotter() {
         setViewMode(false);
         setEditingBlotterId(blotterId);
         setShowModal(true);
-
-        
       }
     } catch (error) {
       console.error("Error:", error);
@@ -887,8 +1150,6 @@ function EBlotter() {
       const data = await response.json();
 
       if (data.success) {
-
-
         // v2 stores one flat offense on the report row, not an offenses array —
         // synthesize a single-item array so the rest of the form (built for offenses[0]) still works.
         const normalizedOffenses = data.data.offenses
@@ -909,7 +1170,7 @@ function EBlotter() {
               },
             ];
         setOffenses(normalizedOffenses);
-        setTypeOfPlace(data.data.type_of_place || "");
+        setTypeOfOperation(data.data.type_of_operation || "");
 
         // Load per-offense modus
         const newOffenseModus = {};
@@ -958,6 +1219,10 @@ function EBlotter() {
           report_number: data.data.report_number || "",
           lat: data.data.lat != null ? String(data.data.lat) : "",
           lng: data.data.lng != null ? String(data.data.lng) : "",
+          assigned_mobile_id:
+            data.data.assigned_mobile_id != null
+              ? String(data.data.assigned_mobile_id)
+              : "",
         });
         if (resolvedBrgy && barangayGeoJSON) {
           const feature = barangayGeoJSON.features.find(
@@ -965,6 +1230,7 @@ function EBlotter() {
           );
           setSelectedBrgyFeature(feature || null);
         }
+        setViewMobileUnitName(data.data.assigned_mobile_name || "");
         setViewMode(true);
         setEditMode(false);
         setEditingBlotterId(blotterId);
@@ -977,7 +1243,7 @@ function EBlotter() {
       setFetchingView(false);
     }
   };
-  
+
   const handleApiResponse = (response) => {
     if (response.status === 401) {
       alert("Your session has expired. Please log in again.");
@@ -1014,123 +1280,117 @@ function EBlotter() {
     fetchBlotters(activeReportTab, false, empty);
   };
 
-  
   const validateCurrentStep = (currentOffenses = offensesRef.current) => {
     const errors = {};
 
-    
+    // Incident Type
+    if (!caseDetail.incident_type || caseDetail.incident_type === "") {
+      errors.incident_type = "Required";
+    }
 
-    
-      // Incident Type
-      if (!caseDetail.incident_type || caseDetail.incident_type === "") {
-        errors.incident_type = "Required";
+    // Date & Time of Commission
+    if (!caseDetail.date_time_commission) {
+      errors.date_time_commission = "Required";
+    } else {
+      const commission = new Date(caseDetail.date_time_commission);
+      const now = new Date();
+
+      if (commission > now) {
+        errors.date_time_commission = "Cannot be future date";
       }
 
-      // Date & Time of Commission
-      if (!caseDetail.date_time_commission) {
-        errors.date_time_commission = "Required";
-      } else {
-        const commission = new Date(caseDetail.date_time_commission);
-        const now = new Date();
-
-        if (commission > now) {
-          errors.date_time_commission = "Cannot be future date";
-        }
-
-        if (caseDetail.date_time_reported) {
-          const reported = new Date(caseDetail.date_time_reported);
-          if (commission > reported) {
-            errors.date_time_commission = "Must be before report date";
-          }
-        }
-      }
-
-      // Date & Time Reported
-      if (!caseDetail.date_time_reported) {
-        errors.date_time_reported = "Required";
-      } else {
+      if (caseDetail.date_time_reported) {
         const reported = new Date(caseDetail.date_time_reported);
-        const now = new Date();
-
-        if (reported > now) {
-          errors.date_time_reported = "Cannot be future date";
-        }
-
-        if (caseDetail.date_time_commission) {
-          const commission = new Date(caseDetail.date_time_commission);
-          if (reported < commission) {
-            errors.date_time_reported = "Cannot be before commission";
-          }
+        if (commission > reported) {
+          errors.date_time_commission = "Must be before report date";
         }
       }
+    }
 
-      // Place - Region
-      if (!caseDetail.place_region || caseDetail.place_region === "") {
-        errors.place_region = "Required";
+    // Date & Time Reported
+    if (!caseDetail.date_time_reported) {
+      errors.date_time_reported = "Required";
+    } else {
+      const reported = new Date(caseDetail.date_time_reported);
+      const now = new Date();
+
+      if (reported > now) {
+        errors.date_time_reported = "Cannot be future date";
       }
 
-      // District/Province
-      if (
-        !caseDetail.place_district_province ||
-        caseDetail.place_district_province.trim().length === 0
-      ) {
-        errors.place_district_province = "Required";
-      } else if (caseDetail.place_district_province.trim().length < 3) {
-        errors.place_district_province = "At least 3 characters";
-      } else if (caseDetail.place_district_province.trim().length > 100) {
-        errors.place_district_province = "Maximum 100 characters";
+      if (caseDetail.date_time_commission) {
+        const commission = new Date(caseDetail.date_time_commission);
+        if (reported < commission) {
+          errors.date_time_reported = "Cannot be before commission";
+        }
       }
+    }
 
-      // City/Municipality
-      if (
-        !caseDetail.place_city_municipality ||
-        caseDetail.place_city_municipality.trim().length === 0
-      ) {
-        errors.place_city_municipality = "Required";
-      } else if (caseDetail.place_city_municipality.trim().length < 3) {
-        errors.place_city_municipality = "At least 3 characters";
-      } else if (caseDetail.place_city_municipality.trim().length > 100) {
-        errors.place_city_municipality = "Maximum 100 characters";
-      }
+    // Place - Region
+    if (!caseDetail.place_region || caseDetail.place_region === "") {
+      errors.place_region = "Required";
+    }
 
-      // Barangay
-      if (
-        !caseDetail.place_barangay ||
-        caseDetail.place_barangay.trim().length === 0
-      ) {
-        errors.place_barangay = "Required";
-      } else if (
-        caseDetail.place_barangay === "Other" &&
-        (!caseDetail.place_barangay_other ||
-          caseDetail.place_barangay_other.trim().length === 0)
-      ) {
-        errors.place_barangay_other = "Please specify location";
-      }
+    // District/Province
+    if (
+      !caseDetail.place_district_province ||
+      caseDetail.place_district_province.trim().length === 0
+    ) {
+      errors.place_district_province = "Required";
+    } else if (caseDetail.place_district_province.trim().length < 3) {
+      errors.place_district_province = "At least 3 characters";
+    } else if (caseDetail.place_district_province.trim().length > 100) {
+      errors.place_district_province = "Maximum 100 characters";
+    }
 
-      if (!caseDetail.lat || !caseDetail.lng) {
-        errors.pin_location =
-          "Please drop a pin on the map to mark the exact location";
-      }
+    // City/Municipality
+    if (
+      !caseDetail.place_city_municipality ||
+      caseDetail.place_city_municipality.trim().length === 0
+    ) {
+      errors.place_city_municipality = "Required";
+    } else if (caseDetail.place_city_municipality.trim().length < 3) {
+      errors.place_city_municipality = "At least 3 characters";
+    } else if (caseDetail.place_city_municipality.trim().length > 100) {
+      errors.place_city_municipality = "Maximum 100 characters";
+    }
 
-      // Offense validations (merged into case detail)
-      // Offense validations (merged into case detail)
-      if (!typeOfPlace || typeOfPlace === "") {
-        errors.type_of_place = "Type of Place is required";
-      }
-      const hasModus = offenseModus[0] && offenseModus[0].length > 0;
-      // const noOffense =
-      //   !offenses[0] ||
-      //   !offenses[0].offense_name ||
-      //   offenses[0].offense_name === "";
-      // if (noOffense) {
-      //   errors.modus = "Please select an Incident Type first";
-      // } else if (
-      //   hasModus &&
-      //   (!offenseSelectedModus[0] || offenseSelectedModus[0].length === 0)
-      // ) {
-      //   errors.modus = "At least one modus is required";
-      // }
-    
+    // Barangay
+    if (
+      !caseDetail.place_barangay ||
+      caseDetail.place_barangay.trim().length === 0
+    ) {
+      errors.place_barangay = "Required";
+    } else if (
+      caseDetail.place_barangay === "Other" &&
+      (!caseDetail.place_barangay_other ||
+        caseDetail.place_barangay_other.trim().length === 0)
+    ) {
+      errors.place_barangay_other = "Please specify location";
+    }
+
+    if (!caseDetail.lat || !caseDetail.lng) {
+      errors.pin_location =
+        "Please drop a pin on the map to mark the exact location";
+    }
+
+    // Offense validations (merged into case detail)
+    if (!typeOfOperation || typeOfOperation === "") {
+      errors.type_of_place = "Type of Operation is required";
+    }
+    const hasModus = offenseModus[0] && offenseModus[0].length > 0;
+    // const noOffense =
+    //   !offenses[0] ||
+    //   !offenses[0].offense_name ||
+    //   offenses[0].offense_name === "";
+    // if (noOffense) {
+    //   errors.modus = "Please select an Incident Type first";
+    // } else if (
+    //   hasModus &&
+    //   (!offenseSelectedModus[0] || offenseSelectedModus[0].length === 0)
+    // ) {
+    //   errors.modus = "At least one modus is required";
+    // }
 
     return errors;
   };
@@ -1148,22 +1408,22 @@ function EBlotter() {
   };
 
   const mapBackendErrorsToFields = (errors, message) => {
-  const mapped = {};
-  const all = errors && errors.length ? errors : message ? [message] : [];
+    const mapped = {};
+    const all = errors && errors.length ? errors : message ? [message] : [];
 
-  all.forEach((msg) => {
-    const m = msg.toLowerCase();
-    if (m.includes("crime type")) mapped.incident_type = msg;
-    else if (m.includes("commission")) mapped.date_time_commission = msg;
-    else if (m.includes("reported") && m.includes("date")) mapped.date_time_reported = msg;
-    else if (m.includes("barangay")) mapped.place_barangay = msg;
-    else if (m.includes("report number")) mapped.report_number = msg;
-    else mapped.general = msg; // fallback bucket
-  });
+    all.forEach((msg) => {
+      const m = msg.toLowerCase();
+      if (m.includes("crime type")) mapped.incident_type = msg;
+      else if (m.includes("commission")) mapped.date_time_commission = msg;
+      else if (m.includes("reported") && m.includes("date"))
+        mapped.date_time_reported = msg;
+      else if (m.includes("barangay")) mapped.place_barangay = msg;
+      else if (m.includes("report number")) mapped.report_number = msg;
+      else mapped.general = msg; // fallback bucket
+    });
 
-  return mapped;
-};
-
+    return mapped;
+  };
 
   const addOffense = () => {
     const newIndex = offenses.length;
@@ -1214,8 +1474,6 @@ function EBlotter() {
   const updateCaseDetail = (field, value) =>
     setCaseDetail((prev) => ({ ...prev, [field]: value }));
   const resetForm = () => {
-    
-
     setOffenses([
       {
         is_principal_offense: true,
@@ -1229,7 +1487,15 @@ function EBlotter() {
     ]);
     setOffenseModus({});
     setOffenseSelectedModus({});
-    setTypeOfPlace("");
+    setTypeOfOperation("");
+    setShowAddTypeOfOperationInput(false);
+    setNewTypeOfOperationInput("");
+    setShowAddModusInput(false);
+    setNewModusInput("");
+    setShowAddTypeOfPlaceInput(false);
+    setNewTypeOfPlaceInput("");
+    setShowAddMobileUnitInput(false);
+    setNewMobileUnitInput("");
 
     setCaseDetail({
       incident_type: "",
@@ -1242,6 +1508,7 @@ function EBlotter() {
       place_barangay_other: "",
       lat: "",
       lng: "",
+      assigned_mobile_id: "",
     });
     setSelectedBrgyFeature(null);
   };
@@ -1249,15 +1516,15 @@ function EBlotter() {
     if (editMode && originalData) {
       // Deep comparison for actual changes
       const hasChanges =
-  JSON.stringify(offenses) !== JSON.stringify(originalData.offenses) ||
-  caseDetail.incident_type !== originalData.caseDetail.incident_type ||
-  caseDetail.date_time_commission !==
-    originalData.caseDetail.date_time_commission ||
-  caseDetail.date_time_reported !==
-    originalData.caseDetail.date_time_reported ||
-  caseDetail.place_barangay !== originalData.caseDetail.place_barangay ||
-  caseDetail.place_barangay_other !==
-    originalData.caseDetail.place_barangay_other;
+        JSON.stringify(offenses) !== JSON.stringify(originalData.offenses) ||
+        caseDetail.incident_type !== originalData.caseDetail.incident_type ||
+        caseDetail.date_time_commission !==
+          originalData.caseDetail.date_time_commission ||
+        caseDetail.date_time_reported !==
+          originalData.caseDetail.date_time_reported ||
+        caseDetail.place_barangay !== originalData.caseDetail.place_barangay ||
+        caseDetail.place_barangay_other !==
+          originalData.caseDetail.place_barangay_other;
 
       if (hasChanges) {
         setShowConfirmClose(true);
@@ -1306,7 +1573,6 @@ function EBlotter() {
     resetForm();
 
     setSelectedBrgyFeature(null);
-    
   };
 
   const cancelClose = () => {
@@ -1314,8 +1580,43 @@ function EBlotter() {
   };
 
   const handleSubmit = async () => {
+    // If the user typed a new modus but never clicked "Add", resolve it now
+    // instead of losing what they typed or submitting with no modus selected.
+    // Capture the returned id directly — offenseSelectedModus state won't have
+    // updated yet inside this closure by the time we read it below.
+    let pendingModusId = null;
+    if (showAddModusInput && newModusInput.trim()) {
+      pendingModusId = await handleAddNewModus(true); // silent — no separate toast
+      if (!pendingModusId) {
+        return; // handleAddNewModus already showed the error toast; keep the input open so they can retry
+      }
+    }
+
+    // If the user typed a new Type of Operation but never confirmed it, resolve it now.
+    let pendingTypeOfOperation = null;
+    if (showAddTypeOfOperationInput && newTypeOfOperationInput.trim()) {
+      pendingTypeOfOperation = await handleAddNewTypeOfOperation(true);
+      if (!pendingTypeOfOperation) {
+        return;
+      }
+    }
+    const effectiveTypeOfOperation = pendingTypeOfOperation || typeOfOperation;
+
+    // Same pattern for Assigned Mobile Unit — optional, so an empty result is fine.
+    let pendingMobileUnitId = null;
+    if (showAddMobileUnitInput && newMobileUnitInput.trim()) {
+      pendingMobileUnitId = await handleAddNewMobileUnit(true);
+      if (!pendingMobileUnitId) {
+        return;
+      }
+    }
+    const effectiveMobileUnitId = pendingMobileUnitId || caseDetail.assigned_mobile_id || null;
+
     // Validate Step 3 before submitting
     const errors = validateCurrentStep(offenses);
+    if (effectiveTypeOfOperation) {
+      delete errors.type_of_place; // validateCurrentStep read stale typeOfOperation — override with resolved value
+    }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -1333,8 +1634,6 @@ function EBlotter() {
     try {
       setIsSubmitting(true);
 
-     
-
       // NORMAL EDIT/CREATE MODE
       const finalCaseDetail = { ...caseDetail };
       if (
@@ -1348,7 +1647,10 @@ function EBlotter() {
       finalCaseDetail.lat = caseDetail.lat ? parseFloat(caseDetail.lat) : null;
       finalCaseDetail.lng = caseDetail.lng ? parseFloat(caseDetail.lng) : null;
 
-      finalCaseDetail.type_of_place = typeOfPlace;
+      finalCaseDetail.type_of_operation = effectiveTypeOfOperation;
+      finalCaseDetail.assigned_mobile_id = effectiveMobileUnitId
+        ? parseInt(effectiveMobileUnitId, 10)
+        : null;
 
       // crime_reports_v2 field renames
       finalCaseDetail.crime_type = finalCaseDetail.incident_type;
@@ -1356,19 +1658,20 @@ function EBlotter() {
       finalCaseDetail.stage_of_felony = offenses[0]?.stage_of_felony || "";
       finalCaseDetail.index_type = offenses[0]?.index_type || "Non-Index";
       finalCaseDetail.modus_reference_id =
-        offenseSelectedModus[0]?.[0] ?? null;
+        pendingModusId ?? offenseSelectedModus[0]?.[0] ?? null;
 
       const offensesWithModus = offenses.map((o, i) => ({
         ...o,
-        modus_reference_id: offenseSelectedModus[i]?.[0] ?? null,
+        modus_reference_id:
+          i === 0
+            ? (pendingModusId ?? offenseSelectedModus[0]?.[0] ?? null)
+            : (offenseSelectedModus[i]?.[0] ?? null),
       }));
 
-      
-
       const payload = {
-  ...finalCaseDetail,
-  offenses: offensesWithModus,
-};
+        ...finalCaseDetail,
+        offenses: offensesWithModus,
+      };
 
       const url = editMode ? `${API_URL}/${editingBlotterId}` : API_URL;
       const method = editMode ? "PUT" : "POST";
@@ -1388,7 +1691,7 @@ function EBlotter() {
         const targetBlotterId = editMode
           ? editingBlotterId
           : data.data?.blotter_id;
-        
+
         const message = editMode
           ? "Report updated successfully!"
           : `Report created successfully!`;
@@ -1397,7 +1700,10 @@ function EBlotter() {
         closeModal();
         fetchBlotters();
       } else {
-        const mapped = mapBackendErrorsToFields(data.errors, data.message || data.error);
+        const mapped = mapBackendErrorsToFields(
+          data.errors,
+          data.message || data.error,
+        );
         setFieldErrors((prev) => ({ ...prev, ...mapped }));
         setTimeout(() => {
           const firstError = document.querySelector(".eb-modal-input.error");
@@ -1483,10 +1789,6 @@ function EBlotter() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
-
-  
-
-  
 
   return (
     <div className="eb-content-area">
@@ -1719,8 +2021,7 @@ function EBlotter() {
                         letterSpacing: "0.5px",
                       }}
                     >
-                          #{" "}
-    {caseDetail.report_number || editingBlotterId}
+                      # {caseDetail.report_number || editingBlotterId}
                     </span>
                   )}
                   <p
@@ -1747,8 +2048,6 @@ function EBlotter() {
             {viewMode ? (
               // ========== VIEW MODE - READ ONLY DISPLAY ==========
               <div className="eb-view-content">
-                
-
                 {/* Case Details */}
                 <div className="eb-view-section">
                   <h3 className="eb-view-section-title">Case Details</h3>
@@ -1820,9 +2119,19 @@ function EBlotter() {
                           <span className="eb-view-value">{`${caseDetail.place_barangay === "Other" && caseDetail.place_barangay_other ? caseDetail.place_barangay_other : caseDetail.place_barangay}, ${caseDetail.place_city_municipality}, ${caseDetail.place_district_province}, ${caseDetail.place_region}`}</span>
                         </div>
                         <div className="eb-view-item">
-                          <span className="eb-view-label">Type of Place:</span>
+                          <span className="eb-view-label">
+                            Type of Operation:
+                          </span>
                           <span className="eb-view-value">
-                            {typeOfPlace || "—"}
+                            {typeOfOperation || "—"}
+                          </span>
+                        </div>
+                        <div className="eb-view-item">
+                          <span className="eb-view-label">
+                            Assigned Mobile Unit:
+                          </span>
+                          <span className="eb-view-value">
+                            {viewMobileUnitName || "—"}
                           </span>
                         </div>
 
@@ -1885,105 +2194,96 @@ function EBlotter() {
                     </div>
                   </div>
                 </div>
-                
-                
               </div>
             ) : (
               // ========== EDIT/CREATE MODE - ORIGINAL FORM ==========
               <>
+                <div className="eb-step-content">
+                  <h3 className="eb-section-title">Case Detail</h3>
+                  <div className="eb-modal-form-grid">
+                    {/* ── ROW 1: OFFENSE CLASSIFICATION ── */}
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">Crime Type *</label>
+                      <select
+                        className={`eb-modal-input ${fieldErrors.incident_type ? "error" : ""}`}
+                        value={caseDetail.incident_type}
+                        onChange={(e) => {
+                          updateCaseDetail("incident_type", e.target.value);
+                          updateOffense(0, "offense_name", e.target.value);
+                          updateOffense(0, "index_type", "Index");
+                          fetchModusForIncidentType(e.target.value);
+                          setShowAddModusInput(false);
+                          setNewModusInput("");
+                          if (e.target.value && fieldErrors.incident_type) {
+                            const newErrors = { ...fieldErrors };
+                            delete newErrors.incident_type;
+                            setFieldErrors(newErrors);
+                          }
+                        }}
+                      >
+                        <option value="">Select Crime Type</option>
+                        <option value="Carnapping - MC">Carnapping - MC</option>
+                        <option value="Carnapping - MV">Carnapping - MV</option>
+                        <option>Homicide</option>
+                        <option>Murder</option>
+                        <option>Physical Injury</option>
+                        <option>Rape</option>
+                        <option>Robbery</option>
+                        <option>Special Complex Crime</option>
+                        <option>Theft</option>
+                      </select>
+                      <FieldError error={fieldErrors.incident_type} />
+                    </div>
 
-
-                
-
-                
-                  <div className="eb-step-content">
-                    <h3 className="eb-section-title">Case Detail</h3>
-                    <div className="eb-modal-form-grid">
-                      {/* ── ROW 1: OFFENSE CLASSIFICATION ── */}
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">Crime Type *</label>
-                        <select
-                          className={`eb-modal-input ${fieldErrors.incident_type ? "error" : ""}`}
-                          value={caseDetail.incident_type}
-                          onChange={(e) => {
-                            updateCaseDetail("incident_type", e.target.value);
-                            updateOffense(0, "offense_name", e.target.value);
-                            updateOffense(0, "index_type", "Index");
-                            fetchModusForIncidentType(e.target.value);
-                            if (e.target.value && fieldErrors.incident_type) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.incident_type;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                        >
-                          <option value="">Select Crime Type</option>
-                          <option value="Carnapping - MC">
-                            Carnapping - MC
-                          </option>
-                          <option value="Carnapping - MV">
-                            Carnapping - MV
-                          </option>
-                          <option>Homicide</option>
-                          <option>Murder</option>
-                          <option>Physical Injury</option>
-                          <option>Rape</option>
-                          <option>Robbery</option>
-                          <option>Special Complex Crime</option>
-                          <option>Theft</option>
-                        </select>
-                        <FieldError error={fieldErrors.incident_type} />
-                      </div>
-
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">
-                          Stage of Felony
-                        </label>
-                        <select
-                          className="eb-modal-input"
-                          value={offenses[0]?.stage_of_felony || ""}
-                          onChange={(e) => {
-                            updateOffense(0, "stage_of_felony", e.target.value);
-                          }}
-                        >
-                          <option value="">Select Stage</option>
-                          <option>CONSUMMATED</option>
-                          <option>ATTEMPTED</option>
-                          <option>FRUSTRATED</option>
-                        </select>
-                      </div>
-
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">
-                          Report Number (optional)
-                        </label>
-                        <input
-                          type="text"
-                          className={`eb-modal-input ${fieldErrors.report_number ? "error" : ""}`}
-                          placeholder="Auto-generated if left blank"
-                          value={caseDetail.report_number || ""}
-                          maxLength="50"
-                          onChange={(e) => {
-                            updateCaseDetail("report_number", e.target.value);
-                            if (fieldErrors.report_number) {
-                              const n = { ...fieldErrors };
-                              delete n.report_number;
-                              setFieldErrors(n);
-                            }
-                          }}
-                        />
-                        <FieldError error={fieldErrors.report_number} />
-                      </div>
-
-                      <div className="eb-modal-form-group">
+                    <div className="eb-modal-form-group">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
                         <label className="eb-modal-label">Modus Operandi</label>
-                        {offenseModus[0] && offenseModus[0].length > 0 ? (
-                          <>
+                        {showAddModusInput && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddModusInput(false);
+                              setNewModusInput("");
+                              if (fieldErrors.modus) {
+                                const n = { ...fieldErrors };
+                                delete n.modus;
+                                setFieldErrors(n);
+                              }
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--navy-primary)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              padding: 0,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            ← Back to list
+                          </button>
+                        )}
+                      </div>
+                      {caseDetail.incident_type ? (
+                        <>
+                          {!showAddModusInput ? (
                             <select
                               className={`eb-modal-input ${fieldErrors.modus ? "error" : ""}`}
                               value={String(offenseSelectedModus[0]?.[0] || "")}
                               onChange={(e) => {
                                 const val = e.target.value;
+                                if (val === "__add_new__") {
+                                  setShowAddModusInput(true);
+                                  setNewModusInput("");
+                                  return;
+                                }
                                 setOffenseSelectedModus((prev) => ({
                                   ...prev,
                                   [0]: val ? [parseInt(val)] : [],
@@ -1996,227 +2296,441 @@ function EBlotter() {
                               }}
                             >
                               <option value="">Select Modus</option>
-                              {offenseModus[0].map((m) => (
+                              {(offenseModus[0] || []).map((m) => (
                                 <option key={m.id} value={String(m.id)}>
                                   {m.modus_name}
                                 </option>
                               ))}
+                              <option value="__add_new__">
+                                + Others (please specify)
+                              </option>
                             </select>
-                            <FieldError error={fieldErrors.modus} />
-                          </>
-                        ) : (
-                          <input
-                            type="text"
-                            className="eb-modal-input"
-                            value="Select Crime Type first"
-                            disabled
-                            style={{
-                              background: "#f3f4f6",
-                              cursor: "not-allowed",
-                              color: "#9ca3af",
+                          ) : (
+                            <input
+                              type="text"
+                              className={`eb-modal-input ${fieldErrors.modus ? "error" : ""}`}
+                              placeholder="Type new modus, then Submit Report"
+                              value={newModusInput}
+                              maxLength="100"
+                              autoFocus
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setNewModusInput(val);
+
+                                const trimmed = val.trim().toLowerCase();
+                                const isDuplicate =
+                                  trimmed.length > 0 &&
+                                  (offenseModus[0] || []).some(
+                                    (m) =>
+                                      m.modus_name.trim().toLowerCase() ===
+                                      trimmed,
+                                  );
+
+                                setFieldErrors((prev) => {
+                                  const n = { ...prev };
+                                  if (isDuplicate) {
+                                    n.modus = `"${val.trim()}" already exists for this crime type`;
+                                  } else {
+                                    delete n.modus;
+                                  }
+                                  return n;
+                                });
+                              }}
+                              style={{ width: "100%", boxSizing: "border-box" }}
+                            />
+                          )}
+                          <FieldError error={fieldErrors.modus} />
+                        </>
+                      ) : (
+                        <input
+                          type="text"
+                          className="eb-modal-input"
+                          value="Select Crime Type first"
+                          disabled
+                          style={{
+                            background: "#f3f4f6",
+                            cursor: "not-allowed",
+                            color: "#9ca3af",
+                          }}
+                        />
+                      )}
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">Stage of Felony</label>
+                      <select
+                        className="eb-modal-input"
+                        value={offenses[0]?.stage_of_felony || ""}
+                        onChange={(e) => {
+                          updateOffense(0, "stage_of_felony", e.target.value);
+                        }}
+                      >
+                        <option value="">Select Stage</option>
+                        <option>CONSUMMATED</option>
+                        <option>ATTEMPTED</option>
+                        <option>FRUSTRATED</option>
+                      </select>
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">
+                        Report Number (optional)
+                      </label>
+                      <input
+                        type="text"
+                        className={`eb-modal-input ${fieldErrors.report_number ? "error" : ""}`}
+                        placeholder="Auto-generated if left blank"
+                        value={caseDetail.report_number || ""}
+                        maxLength="50"
+                        onChange={(e) => {
+                          updateCaseDetail("report_number", e.target.value);
+                          if (fieldErrors.report_number) {
+                            const n = { ...fieldErrors };
+                            delete n.report_number;
+                            setFieldErrors(n);
+                          }
+                        }}
+                      />
+                      <FieldError error={fieldErrors.report_number} />
+                    </div>
+
+                    {/* ── ROW 2: CASE ADMIN ── */}
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">
+                        Date & Time of Commission *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        className={`eb-modal-input ${fieldErrors.date_time_commission ? "error" : ""}`}
+                        value={caseDetail.date_time_commission}
+                        max={toLocalDateTimeString()}
+                        onKeyDown={(e) => e.preventDefault()}
+                        onChange={(e) => {
+                          updateCaseDetail(
+                            "date_time_commission",
+                            e.target.value,
+                          );
+                          if (
+                            e.target.value &&
+                            fieldErrors.date_time_commission
+                          ) {
+                            const newErrors = { ...fieldErrors };
+                            delete newErrors.date_time_commission;
+                            setFieldErrors(newErrors);
+                          }
+                        }}
+                      />
+                      <FieldError error={fieldErrors.date_time_commission} />
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">
+                        Date & Time Reported *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        className={`eb-modal-input ${fieldErrors.date_time_reported ? "error" : ""}`}
+                        value={caseDetail.date_time_reported}
+                        max={toLocalDateTimeString()}
+                        onKeyDown={(e) => e.preventDefault()}
+                        onChange={(e) => {
+                          updateCaseDetail(
+                            "date_time_reported",
+                            e.target.value,
+                          );
+                          if (
+                            e.target.value &&
+                            fieldErrors.date_time_reported
+                          ) {
+                            const newErrors = { ...fieldErrors };
+                            delete newErrors.date_time_reported;
+                            setFieldErrors(newErrors);
+                          }
+                        }}
+                      />
+                      <FieldError error={fieldErrors.date_time_reported} />
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <label className="eb-modal-label">Assigned Mobile Unit</label>
+                        {showAddMobileUnitInput && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddMobileUnitInput(false);
+                              setNewMobileUnitInput("");
+                              if (fieldErrors.assigned_mobile_id) {
+                                const n = { ...fieldErrors };
+                                delete n.assigned_mobile_id;
+                                setFieldErrors(n);
+                              }
                             }}
-                          />
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--navy-primary)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              padding: 0,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            ← Back to list
+                          </button>
                         )}
                       </div>
-
-                      {/* ── ROW 2: CASE ADMIN ── */}
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">
-                          Date & Time of Commission *
-                        </label>
+                      {!showAddMobileUnitInput ? (
+                        <select
+                          className={`eb-modal-input ${fieldErrors.assigned_mobile_id ? "error" : ""}`}
+                          value={caseDetail.assigned_mobile_id || ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "__add_new__") {
+                              setShowAddMobileUnitInput(true);
+                              setNewMobileUnitInput("");
+                              return;
+                            }
+                            updateCaseDetail("assigned_mobile_id", val);
+                            if (fieldErrors.assigned_mobile_id) {
+                              const n = { ...fieldErrors };
+                              delete n.assigned_mobile_id;
+                              setFieldErrors(n);
+                            }
+                          }}
+                        >
+                          <option value="">Unassigned</option>
+                          {mobileUnits.map((u) => (
+                            <option key={u.id} value={String(u.id)}>
+                              {u.unit_name}
+                            </option>
+                          ))}
+                          <option value="__add_new__">
+                            + Others (please specify)
+                          </option>
+                        </select>
+                      ) : (
                         <input
-                          type="datetime-local"
-                          className={`eb-modal-input ${fieldErrors.date_time_commission ? "error" : ""}`}
-                          value={caseDetail.date_time_commission}
-                          max={toLocalDateTimeString()}
-                          onKeyDown={(e) => e.preventDefault()}
+                          type="text"
+                          className={`eb-modal-input ${fieldErrors.assigned_mobile_id ? "error" : ""}`}
+                          placeholder="Type new mobile unit, then Submit Report"
+                          value={newMobileUnitInput}
+                          maxLength="150"
+                          autoFocus
                           onChange={(e) => {
-                            updateCaseDetail(
-                              "date_time_commission",
-                              e.target.value,
-                            );
-                            if (
-                              e.target.value &&
-                              fieldErrors.date_time_commission
-                            ) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.date_time_commission;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                        />
-                        <FieldError error={fieldErrors.date_time_commission} />
-                      </div>
+                            const val = e.target.value;
+                            setNewMobileUnitInput(val);
 
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">
-                          Date & Time Reported *
-                        </label>
-                        <input
-                          type="datetime-local"
-                          className={`eb-modal-input ${fieldErrors.date_time_reported ? "error" : ""}`}
-                          value={caseDetail.date_time_reported}
-                          max={toLocalDateTimeString()}
-                          onKeyDown={(e) => e.preventDefault()}
-                          onChange={(e) => {
-                            updateCaseDetail(
-                              "date_time_reported",
-                              e.target.value,
-                            );
-                            if (
-                              e.target.value &&
-                              fieldErrors.date_time_reported
-                            ) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.date_time_reported;
-                              setFieldErrors(newErrors);
-                            }
-                          }}
-                        />
-                        <FieldError error={fieldErrors.date_time_reported} />
-                      </div>
-
-                      <div className="eb-modal-form-group"></div>
-
-                      {/* ── LOCATION DIVIDER ── */}
-                      <div
-                        className="eb-group-divider"
-                        style={{ margin: "4px 0 8px 0" }}
-                      >
-                        Place of Commission
-                      </div>
-
-                      {/* ── ROW 3: LOCATION ── */}
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">Region *</label>
-                        <select
-                          className="eb-modal-input"
-                          value="040000000"
-                          disabled
-                          style={{
-                            background: "#f3f4f6",
-                            cursor: "not-allowed",
-                            color: "#6b7280",
-                          }}
-                        >
-                          <option value="040000000">CALABARZON</option>
-                        </select>
-                      </div>
-
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">
-                          District/Province *
-                        </label>
-                        <select
-                          className="eb-modal-input"
-                          value="042100000"
-                          disabled
-                          style={{
-                            background: "#f3f4f6",
-                            cursor: "not-allowed",
-                            color: "#6b7280",
-                          }}
-                        >
-                          <option value="042100000">Cavite</option>
-                        </select>
-                      </div>
-
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">
-                          City/Municipality *
-                        </label>
-                        <select
-                          className="eb-modal-input"
-                          value="042103000"
-                          disabled
-                          style={{
-                            background: "#f3f4f6",
-                            cursor: "not-allowed",
-                            color: "#6b7280",
-                          }}
-                        >
-                          <option value="042103000">City of Bacoor</option>
-                        </select>
-                      </div>
-
-                      <div className="eb-modal-form-group">
-                        <label className="eb-modal-label">Barangay *</label>
-                        <select
-                          className={`eb-modal-input ${fieldErrors.place_barangay ? "error" : ""}`}
-                          value={caseDetail.place_barangay}
-                          disabled={loadingBacoorBrgy}
-                          onChange={(e) => {
-                            const selectedName = e.target.value;
-                            updateCaseDetail("place_barangay", selectedName);
-                            updateCaseDetail("lat", "");
-                            updateCaseDetail("lng", "");
-                            updateCaseDetail("place_street", "");
-                            setStreetSuggestions([]);
-                            if (selectedName && fieldErrors.place_barangay) {
-                              const newErrors = { ...fieldErrors };
-                              delete newErrors.place_barangay;
-                              setFieldErrors(newErrors);
-                            }
-                            if (selectedName && barangayGeoJSON) {
-                              const feature = barangayGeoJSON.features.find(
-                                (f) => f.properties.name_db === selectedName,
+                            const trimmed = val.trim().toLowerCase();
+                            const isDuplicate =
+                              trimmed.length > 0 &&
+                              mobileUnits.some(
+                                (u) => u.unit_name.trim().toLowerCase() === trimmed,
                               );
-                              if (feature) {
-                                setSelectedBrgyFeature(feature);
-                                const { centroid_lat, centroid_lng } =
-                                  feature.properties;
-                                if (
-                                  mapRef.current &&
-                                  centroid_lat &&
-                                  centroid_lng
-                                ) {
-                                  mapRef.current.flyTo({
-                                    center: [
-                                      parseFloat(centroid_lng),
-                                      parseFloat(centroid_lat),
-                                    ],
-                                    zoom: 15,
-                                    duration: 1000,
-                                  });
-                                }
+
+                            setFieldErrors((prev) => {
+                              const n = { ...prev };
+                              if (isDuplicate) {
+                                n.assigned_mobile_id = `"${val.trim()}" already exists`;
                               } else {
-                                setSelectedBrgyFeature(null);
+                                delete n.assigned_mobile_id;
+                              }
+                              return n;
+                            });
+                          }}
+                          style={{ width: "100%", boxSizing: "border-box" }}
+                        />
+                      )}
+                      <FieldError error={fieldErrors.assigned_mobile_id} />
+                    </div>
+
+                    <div className="eb-modal-form-group"></div>
+
+                    {/* ── LOCATION DIVIDER ── */}
+                    <div
+                      className="eb-group-divider"
+                      style={{ margin: "4px 0 8px 0" }}
+                    >
+                      Place of Commission
+                    </div>
+
+                    {/* ── ROW 3: LOCATION ── */}
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">Region *</label>
+                      <select
+                        className="eb-modal-input"
+                        value="040000000"
+                        disabled
+                        style={{
+                          background: "#f3f4f6",
+                          cursor: "not-allowed",
+                          color: "#6b7280",
+                        }}
+                      >
+                        <option value="040000000">CALABARZON</option>
+                      </select>
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">
+                        District/Province *
+                      </label>
+                      <select
+                        className="eb-modal-input"
+                        value="042100000"
+                        disabled
+                        style={{
+                          background: "#f3f4f6",
+                          cursor: "not-allowed",
+                          color: "#6b7280",
+                        }}
+                      >
+                        <option value="042100000">Cavite</option>
+                      </select>
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">
+                        City/Municipality *
+                      </label>
+                      <select
+                        className="eb-modal-input"
+                        value="042103000"
+                        disabled
+                        style={{
+                          background: "#f3f4f6",
+                          cursor: "not-allowed",
+                          color: "#6b7280",
+                        }}
+                      >
+                        <option value="042103000">City of Bacoor</option>
+                      </select>
+                    </div>
+
+                    <div className="eb-modal-form-group">
+                      <label className="eb-modal-label">Barangay *</label>
+                      <select
+                        className={`eb-modal-input ${fieldErrors.place_barangay ? "error" : ""}`}
+                        value={caseDetail.place_barangay}
+                        disabled={loadingBacoorBrgy}
+                        onChange={(e) => {
+                          const selectedName = e.target.value;
+                          updateCaseDetail("place_barangay", selectedName);
+                          updateCaseDetail("lat", "");
+                          updateCaseDetail("lng", "");
+                          updateCaseDetail("place_street", "");
+                          setStreetSuggestions([]);
+                          if (selectedName && fieldErrors.place_barangay) {
+                            const newErrors = { ...fieldErrors };
+                            delete newErrors.place_barangay;
+                            setFieldErrors(newErrors);
+                          }
+                          if (selectedName && barangayGeoJSON) {
+                            const feature = barangayGeoJSON.features.find(
+                              (f) => f.properties.name_db === selectedName,
+                            );
+                            if (feature) {
+                              setSelectedBrgyFeature(feature);
+                              const { centroid_lat, centroid_lng } =
+                                feature.properties;
+                              if (
+                                mapRef.current &&
+                                centroid_lat &&
+                                centroid_lng
+                              ) {
+                                mapRef.current.flyTo({
+                                  center: [
+                                    parseFloat(centroid_lng),
+                                    parseFloat(centroid_lat),
+                                  ],
+                                  zoom: 15,
+                                  duration: 1000,
+                                });
                               }
                             } else {
                               setSelectedBrgyFeature(null);
                             }
-                          }}
-                        >
-                          <option value="">
-                            {loadingBacoorBrgy
-                              ? "Loading..."
-                              : "Select Barangay"}
+                          } else {
+                            setSelectedBrgyFeature(null);
+                          }
+                        }}
+                      >
+                        <option value="">
+                          {loadingBacoorBrgy ? "Loading..." : "Select Barangay"}
+                        </option>
+                        {CURRENT_BARANGAYS.map((b) => (
+                          <option key={b} value={b}>
+                            {formatBarangayLabel(b)}
                           </option>
-                          {CURRENT_BARANGAYS.map((b) => (
-                            <option key={b} value={b}>
-                              {formatBarangayLabel(b)}
+                        ))}
+                        <optgroup label="── Pre-2023 Names (Auto-resolved) ──">
+                          {LEGACY_BARANGAY_OPTIONS.map((b, idx) => (
+                            <option key={`legacy-${idx}`} value={b.value}>
+                              {b.label}
                             </option>
                           ))}
-                          <optgroup label="── Pre-2023 Names (Auto-resolved) ──">
-                            {LEGACY_BARANGAY_OPTIONS.map((b, idx) => (
-                              <option key={`legacy-${idx}`} value={b.value}>
-                                {b.label}
-                              </option>
-                            ))}
-                          </optgroup>
-                        </select>
-                        <FieldError error={fieldErrors.place_barangay} />
-                      </div>
+                        </optgroup>
+                      </select>
+                      <FieldError error={fieldErrors.place_barangay} />
+                    </div>
 
-                                            <div className="eb-modal-form-group">
+                    <div className="eb-modal-form-group">
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
                         <label className="eb-modal-label">
-                          Type of Place *
+                          Type of Operation *
                         </label>
+                        {showAddTypeOfOperationInput && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddTypeOfOperationInput(false);
+                              setNewTypeOfOperationInput("");
+                              if (fieldErrors.type_of_place) {
+                                const n = { ...fieldErrors };
+                                delete n.type_of_place;
+                                setFieldErrors(n);
+                              }
+                            }}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: "var(--navy-primary)",
+                              fontSize: "11px",
+                              fontWeight: 600,
+                              cursor: "pointer",
+                              padding: 0,
+                              textDecoration: "underline",
+                            }}
+                          >
+                            ← Back to list
+                          </button>
+                        )}
+                      </div>
+                      {!showAddTypeOfOperationInput ? (
                         <select
                           className={`eb-modal-input ${fieldErrors.type_of_place ? "error" : ""}`}
-                          value={typeOfPlace}
+                          value={typeOfOperation}
                           onChange={(e) => {
-                            setTypeOfPlace(e.target.value);
+                            const val = e.target.value;
+                            if (val === "__add_new__") {
+                              setShowAddTypeOfOperationInput(true);
+                              setNewTypeOfOperationInput("");
+                              return;
+                            }
+                            setTypeOfOperation(val);
                             if (fieldErrors.type_of_place) {
                               const newErrors = { ...fieldErrors };
                               delete newErrors.type_of_place;
@@ -2224,511 +2738,513 @@ function EBlotter() {
                             }
                           }}
                         >
-                          <option value="">Select Type of Place</option>
-                          <option>
-                            Abandoned Structure (house, bldg, apartment/condo)
-                          </option>
-                          <option>Along the street</option>
-                          <option>Commercial/Business Establishment</option>
-                          <option>Construction/Industrial Barracks</option>
-                          <option>Farm/Ricefield</option>
-                          <option>Government Office/Establishment</option>
-                          <option>Onboard a vehicle (riding in/on)</option>
-                          <option>
-                            Parking Area (vacant lot, in bldg/structure, open
-                            parking)
-                          </option>
-                          <option>Recreational Place (resorts/parks)</option>
-                          <option>Residential (house/condo)</option>
-                          <option>River/Lake</option>
-                          <option>
-                            School (Grade/High School/College/University)
-                          </option>
-                          <option>
-                            Transportation Terminals (Tricycle, Jeep, FX, Bus,
-                            Train Station)
-                          </option>
-                          <option>
-                            Vacant Lot (unused/unoccupied open area)
+                          <option value="">Select Type of Operation</option>
+                          {typeOfOperationOptions.map((o) => (
+                            <option key={o.id} value={o.operation_name}>
+                              {o.operation_name}
+                            </option>
+                          ))}
+                          <option value="__add_new__">
+                            + Others (please specify)
                           </option>
                         </select>
-                        <FieldError error={fieldErrors.type_of_place} />
-                      </div>
+                      ) : (
+                        <input
+                          type="text"
+                          className={`eb-modal-input ${fieldErrors.type_of_place ? "error" : ""}`}
+                          placeholder="Type new Type of Operation, then Submit Report"
+                          value={newTypeOfOperationInput}
+                          maxLength="100"
+                          autoFocus
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setNewTypeOfOperationInput(val);
 
-                      {/* ── ROW 6: MAP ── */}
+                            const trimmed = val.trim().toLowerCase();
+                            const isDuplicate =
+                              trimmed.length > 0 &&
+                              typeOfOperationOptions.some(
+                                (o) =>
+                                  o.operation_name.trim().toLowerCase() ===
+                                  trimmed,
+                              );
+
+                            setFieldErrors((prev) => {
+                              const n = { ...prev };
+                              if (isDuplicate) {
+                                n.type_of_place = `"${val.trim()}" already exists`;
+                              } else {
+                                delete n.type_of_place;
+                              }
+                              return n;
+                            });
+                          }}
+                          style={{ width: "100%", boxSizing: "border-box" }}
+                        />
+                      )}
+                      <FieldError error={fieldErrors.type_of_place} />
+                    </div>
+
+                    {/* ── ROW 6: MAP ── */}
+                    <div
+                      className="eb-modal-form-group"
+                      style={{ gridColumn: "span 4" }}
+                    >
                       <div
-                        className="eb-modal-form-group"
-                        style={{ gridColumn: "span 4" }}
+                        style={{
+                          background:
+                            "linear-gradient(135deg, var(--navy-dark), var(--navy-primary))",
+                          padding: "10px 16px",
+                          borderRadius: "6px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: "12px",
+                        }}
                       >
-                        <div
+                        <span
                           style={{
-                            background:
-                              "linear-gradient(135deg, var(--navy-dark), var(--navy-primary))",
-                            padding: "10px 16px",
-                            borderRadius: "6px",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginBottom: "12px",
+                            color: "white",
+                            fontWeight: 700,
+                            fontSize: "12px",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.8px",
                           }}
                         >
-                          <span
-                            style={{
-                              color: "white",
-                              fontWeight: 700,
-                              fontSize: "12px",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.8px",
-                            }}
-                          >
-                            Crime Location Pin
-                          </span>
-                          <span
-                            style={{
-                              color: "rgba(255,255,255,0.6)",
-                              fontSize: "11px",
-                            }}
-                          >
-                            {caseDetail.place_barangay
-                              ? `Restricted to ${caseDetail.place_barangay} boundary`
-                              : "Select a barangay first"}
-                          </span>
-                        </div>
-
-                        <div
+                          Crime Location Pin
+                        </span>
+                        <span
                           style={{
-                            display: "flex",
-                            gap: "12px",
-                            marginBottom: "10px",
-                            alignItems: "center",
-                          }}
-                        >
-                          <div style={{ flex: 1 }}>
-                            <label
-                              style={{
-                                fontSize: "11px",
-                                color: "#6b7280",
-                                display: "block",
-                                marginBottom: "3px",
-                              }}
-                            >
-                              Latitude
-                            </label>
-                            <input
-                              type="text"
-                              className="eb-modal-input"
-                              placeholder="Set by clicking the map"
-                              value={caseDetail.lat}
-                              disabled
-                              style={{
-                                background: "#f3f4f6",
-                                cursor: "not-allowed",
-                                color: "#6b7280",
-                              }}
-                            />
-                          </div>
-                          <div style={{ flex: 1 }}>
-                            <label
-                              style={{
-                                fontSize: "11px",
-                                color: "#6b7280",
-                                display: "block",
-                                marginBottom: "3px",
-                              }}
-                            >
-                              Longitude
-                            </label>
-                            <input
-                              type="text"
-                              className="eb-modal-input"
-                              placeholder="Set by clicking the map"
-                              value={caseDetail.lng}
-                              disabled
-                              style={{
-                                background: "#f3f4f6",
-                                cursor: "not-allowed",
-                                color: "#6b7280",
-                              }}
-                            />
-                          </div>
-                          {(caseDetail.lat || caseDetail.lng) && (
-                            <button
-                              type="button"
-                              style={{
-                                alignSelf: "flex-end",
-                                padding: "8px 14px",
-                                background: "#fee2e2",
-                                color: "#dc2626",
-                                border: "1px solid #fca5a5",
-                                borderRadius: "6px",
-                                fontSize: "12px",
-                                cursor: "pointer",
-                                whiteSpace: "nowrap",
-                              }}
-                              onClick={() => {
-                                updateCaseDetail("lat", "");
-                                updateCaseDetail("lng", "");
-                              }}
-                            >
-                              Clear Pin
-                            </button>
-                          )}
-                        </div>
-
-                        <div
-                          style={{
-                            position: "relative",
-                            height: "600px",
-                            borderRadius: "8px",
-                            overflow: "hidden",
-                            border: "1px solid #d1d5db",
-                          }}
-                        >
-                          {!caseDetail.place_barangay && (
-                            <div
-                              style={{
-                                position: "absolute",
-                                inset: 0,
-                                zIndex: 10,
-                                background: "rgba(243,244,246,0.85)",
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: "10px",
-                                pointerEvents: "all",
-                                cursor: "not-allowed",
-                                borderRadius: "8px",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: "48px",
-                                  height: "48px",
-                                  borderRadius: "50%",
-                                  background: "#e5e7eb",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  justifyContent: "center",
-                                }}
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  width="22"
-                                  height="22"
-                                  viewBox="0 0 24 24"
-                                  fill="none"
-                                  stroke="#9ca3af"
-                                  strokeWidth="2"
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                >
-                                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                                  <circle cx="12" cy="10" r="3" />
-                                </svg>
-                              </div>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontSize: "14px",
-                                  fontWeight: 600,
-                                  color: "#6b7280",
-                                }}
-                              >
-                                Select a barangay to enable the map
-                              </p>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontSize: "12px",
-                                  color: "#9ca3af",
-                                }}
-                              >
-                                The pin will be restricted to the selected
-                                barangay boundary
-                              </p>
-                            </div>
-                          )}
-
-                          <Map
-                            ref={mapRef}
-                            mapboxAccessToken={
-                              import.meta.env.VITE_MAPBOX_TOKEN
-                            }
-                            key={`map-${editingBlotterId || "new"}`}
-                            initialViewState={{
-                              longitude: caseDetail.lng
-                                ? parseFloat(caseDetail.lng)
-                                : 120.964,
-                              latitude: caseDetail.lat
-                                ? parseFloat(caseDetail.lat)
-                                : 14.4341,
-                              zoom: caseDetail.lat ? 15 : 12,
-                            }}
-                            style={{ width: "100%", height: "100%" }}
-                            mapStyle="mapbox://styles/mapbox/streets-v12"
-                            onClick={(e) => {
-                              if (viewMode || !caseDetail.place_barangay)
-                                return;
-                              const { lng, lat } = e.lngLat;
-                              if (selectedBrgyFeature) {
-                                const rings =
-                                  selectedBrgyFeature.geometry.type ===
-                                  "Polygon"
-                                    ? selectedBrgyFeature.geometry.coordinates
-                                    : selectedBrgyFeature.geometry.coordinates.flat(
-                                        1,
-                                      );
-                                let inside = false;
-                                for (const ring of rings) {
-                                  const n = ring.length;
-                                  let j = n - 1;
-                                  for (let i = 0; i < n; i++) {
-                                    const xi = ring[i][0],
-                                      yi = ring[i][1];
-                                    const xj = ring[j][0],
-                                      yj = ring[j][1];
-                                    const intersect =
-                                      yi > lat !== yj > lat &&
-                                      lng <
-                                        ((xj - xi) * (lat - yi)) / (yj - yi) +
-                                          xi;
-                                    if (intersect) inside = !inside;
-                                    j = i;
-                                  }
-                                }
-                                if (!inside) {
-                                  showWarningToast(
-                                    `Pin must be placed inside ${caseDetail.place_barangay}`,
-                                  );
-                                  return;
-                                }
-                              }
-                              updateCaseDetail("lat", lat.toFixed(6));
-                              updateCaseDetail("lng", lng.toFixed(6));
-                              if (fieldErrors.pin_location) {
-                                const newErrors = { ...fieldErrors };
-                                delete newErrors.pin_location;
-                                setFieldErrors(newErrors);
-                              }
-
-                              // Reverse geocode → auto-fill street field
-                              fetch(
-                                `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng.toFixed(6)},${lat.toFixed(6)}.json?access_token=${
-                                  import.meta.env.VITE_MAPBOX_TOKEN
-                                }&country=PH&types=address,poi&language=en&limit=1`,
-                              )
-                                .then((r) => r.json())
-                                .then((data) => {
-                                  if (
-                                    data.features &&
-                                    data.features.length > 0
-                                  ) {
-                                    const street =
-                                      data.features[0].place_text ||
-                                      data.features[0].place_name.split(",")[0];
-                                    if (street) {
-                                      updateCaseDetail("place_street", street);
-                                      setFieldErrors((prev) => {
-                                        const n = { ...prev };
-                                        delete n.place_street;
-                                        return n;
-                                      });
-                                    }
-                                  }
-                                })
-                                .catch((err) =>
-                                  console.error("Reverse geocode error:", err),
-                                );
-                            }}
-                            cursor={
-                              !caseDetail.place_barangay || viewMode
-                                ? "default"
-                                : "crosshair"
-                            }
-                          >
-                            {selectedBrgyFeature && (
-                              <Source
-                                id="brgy-boundary"
-                                type="geojson"
-                                data={selectedBrgyFeature}
-                              >
-                                <Layer
-                                  id="brgy-fill"
-                                  type="fill"
-                                  paint={{
-                                    "fill-color": "#1e3a5f",
-                                    "fill-opacity": 0.08,
-                                  }}
-                                />
-                                <Layer
-                                  id="brgy-outline"
-                                  type="line"
-                                  paint={{
-                                    "line-color": "#1e3a5f",
-                                    "line-width": 2.5,
-                                    "line-dasharray": [2, 1],
-                                  }}
-                                />
-                              </Source>
-                            )}
-                            {caseDetail.lat && caseDetail.lng && (
-                              <Marker
-                                longitude={parseFloat(caseDetail.lng)}
-                                latitude={parseFloat(caseDetail.lat)}
-                                anchor="bottom"
-                              >
-                                <div
-                                  style={{
-                                    width: "26px",
-                                    height: "26px",
-                                    borderRadius: "50% 50% 50% 0",
-                                    background: (() => {
-                                      const colors = {
-                                        Murder: "#7c3aed",
-                                        Homicide: "#8b5cf6",
-                                        Rape: "#ec4899",
-                                        Robbery: "#ef4444",
-                                        Theft: "#f97316",
-                                        "Physical Injury": "#eab308",
-                                        "Carnapping - MC": "#3b82f6",
-                                        "Carnapping - MV": "#0ea5e9",
-                                        "Special Complex Crime": "#14b8a6",
-                                      };
-                                      return (
-                                        colors[caseDetail.incident_type] ||
-                                        "#c1272d"
-                                      );
-                                    })(),
-                                    border: "2px solid white",
-                                    transform: "rotate(-45deg)",
-                                    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
-                                  }}
-                                />
-                              </Marker>
-                            )}
-                          </Map>
-                        </div>
-
-                        <small
-                          style={{
-                            color: "#6b7280",
+                            color: "rgba(255,255,255,0.6)",
                             fontSize: "11px",
-                            display: "block",
-                            marginTop: "5px",
                           }}
                         >
                           {caseDetail.place_barangay
-                            ? `Pinning inside ${caseDetail.place_barangay}. Click the map to drop a pin.`
-                            : "Select a barangay above to activate the map."}
-                        </small>
-                        {fieldErrors.pin_location && (
-                          <span
-                            className="eb-field-error eb-pin-location-error"
-                            style={{ marginTop: "6px", display: "block" }}
+                            ? `Restricted to ${caseDetail.place_barangay} boundary`
+                            : "Select a barangay first"}
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "12px",
+                          marginBottom: "10px",
+                          alignItems: "center",
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <label
+                            style={{
+                              fontSize: "11px",
+                              color: "#6b7280",
+                              display: "block",
+                              marginBottom: "3px",
+                            }}
                           >
-                            {fieldErrors.pin_location}
-                          </span>
+                            Latitude
+                          </label>
+                          <input
+                            type="text"
+                            className="eb-modal-input"
+                            placeholder="Set by clicking the map"
+                            value={caseDetail.lat}
+                            disabled
+                            style={{
+                              background: "#f3f4f6",
+                              cursor: "not-allowed",
+                              color: "#6b7280",
+                            }}
+                          />
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <label
+                            style={{
+                              fontSize: "11px",
+                              color: "#6b7280",
+                              display: "block",
+                              marginBottom: "3px",
+                            }}
+                          >
+                            Longitude
+                          </label>
+                          <input
+                            type="text"
+                            className="eb-modal-input"
+                            placeholder="Set by clicking the map"
+                            value={caseDetail.lng}
+                            disabled
+                            style={{
+                              background: "#f3f4f6",
+                              cursor: "not-allowed",
+                              color: "#6b7280",
+                            }}
+                          />
+                        </div>
+                        {(caseDetail.lat || caseDetail.lng) && (
+                          <button
+                            type="button"
+                            style={{
+                              alignSelf: "flex-end",
+                              padding: "8px 14px",
+                              background: "#fee2e2",
+                              color: "#dc2626",
+                              border: "1px solid #fca5a5",
+                              borderRadius: "6px",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                              whiteSpace: "nowrap",
+                            }}
+                            onClick={() => {
+                              updateCaseDetail("lat", "");
+                              updateCaseDetail("lng", "");
+                            }}
+                          >
+                            Clear Pin
+                          </button>
                         )}
-                        {caseDetail.lat &&
-                          caseDetail.lng &&
-                          isPinOutsideBoundary() && (
+                      </div>
+
+                      <div
+                        style={{
+                          position: "relative",
+                          height: "600px",
+                          borderRadius: "8px",
+                          overflow: "hidden",
+                          border: "1px solid #d1d5db",
+                        }}
+                      >
+                        {!caseDetail.place_barangay && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              inset: 0,
+                              zIndex: 10,
+                              background: "rgba(243,244,246,0.85)",
+                              display: "flex",
+                              flexDirection: "column",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: "10px",
+                              pointerEvents: "all",
+                              cursor: "not-allowed",
+                              borderRadius: "8px",
+                            }}
+                          >
                             <div
                               style={{
-                                marginTop: "8px",
-                                padding: "10px 14px",
-                                background: "#fef3c7",
-                                border: "1px solid #f59e0b",
-                                borderRadius: "6px",
+                                width: "48px",
+                                height: "48px",
+                                borderRadius: "50%",
+                                background: "#e5e7eb",
                                 display: "flex",
-                                alignItems: "flex-start",
-                                gap: "8px",
+                                alignItems: "center",
+                                justifyContent: "center",
                               }}
                             >
                               <svg
                                 xmlns="http://www.w3.org/2000/svg"
-                                width="16"
-                                height="16"
+                                width="22"
+                                height="22"
                                 viewBox="0 0 24 24"
                                 fill="none"
-                                stroke="#d97706"
-                                strokeWidth="2.5"
+                                stroke="#9ca3af"
+                                strokeWidth="2"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                style={{ flexShrink: 0, marginTop: "1px" }}
                               >
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                                <line x1="12" y1="9" x2="12" y2="13" />
-                                <line x1="12" y1="17" x2="12.01" y2="17" />
+                                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                                <circle cx="12" cy="10" r="3" />
                               </svg>
-                              <div>
-                                <div
-                                  style={{
-                                    fontSize: "13px",
-                                    fontWeight: 700,
-                                    color: "#92400e",
-                                  }}
-                                >
-                                  Pin Location Warning
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: "12px",
-                                    color: "#b45309",
-                                    marginTop: "2px",
-                                  }}
-                                >
-                                  The pinned location appears to be outside the
-                                  selected barangay boundary (
-                                  {caseDetail.place_barangay}). This may be due
-                                  to an imported record with inaccurate
-                                  coordinates. Please verify and re-pin on the
-                                  map if needed.
-                                </div>
-                              </div>
                             </div>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: "14px",
+                                fontWeight: 600,
+                                color: "#6b7280",
+                              }}
+                            >
+                              Select a barangay to enable the map
+                            </p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: "12px",
+                                color: "#9ca3af",
+                              }}
+                            >
+                              The pin will be restricted to the selected
+                              barangay boundary
+                            </p>
+                          </div>
+                        )}
+
+                        <Map
+                          ref={mapRef}
+                          mapboxAccessToken={import.meta.env.VITE_MAPBOX_TOKEN}
+                          key={`map-${editingBlotterId || "new"}`}
+                          initialViewState={{
+                            longitude: caseDetail.lng
+                              ? parseFloat(caseDetail.lng)
+                              : 120.964,
+                            latitude: caseDetail.lat
+                              ? parseFloat(caseDetail.lat)
+                              : 14.4341,
+                            zoom: caseDetail.lat ? 15 : 12,
+                          }}
+                          style={{ width: "100%", height: "100%" }}
+                          mapStyle="mapbox://styles/mapbox/streets-v12"
+                          onClick={(e) => {
+                            if (viewMode || !caseDetail.place_barangay) return;
+                            const { lng, lat } = e.lngLat;
+                            if (selectedBrgyFeature) {
+                              const rings =
+                                selectedBrgyFeature.geometry.type === "Polygon"
+                                  ? selectedBrgyFeature.geometry.coordinates
+                                  : selectedBrgyFeature.geometry.coordinates.flat(
+                                      1,
+                                    );
+                              let inside = false;
+                              for (const ring of rings) {
+                                const n = ring.length;
+                                let j = n - 1;
+                                for (let i = 0; i < n; i++) {
+                                  const xi = ring[i][0],
+                                    yi = ring[i][1];
+                                  const xj = ring[j][0],
+                                    yj = ring[j][1];
+                                  const intersect =
+                                    yi > lat !== yj > lat &&
+                                    lng <
+                                      ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+                                  if (intersect) inside = !inside;
+                                  j = i;
+                                }
+                              }
+                              if (!inside) {
+                                showWarningToast(
+                                  `Pin must be placed inside ${caseDetail.place_barangay}`,
+                                );
+                                return;
+                              }
+                            }
+                            updateCaseDetail("lat", lat.toFixed(6));
+                            updateCaseDetail("lng", lng.toFixed(6));
+                            if (fieldErrors.pin_location) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.pin_location;
+                              setFieldErrors(newErrors);
+                            }
+
+                            // Reverse geocode → auto-fill street field
+                            fetch(
+                              `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng.toFixed(6)},${lat.toFixed(6)}.json?access_token=${
+                                import.meta.env.VITE_MAPBOX_TOKEN
+                              }&country=PH&types=address,poi&language=en&limit=1`,
+                            )
+                              .then((r) => r.json())
+                              .then((data) => {
+                                if (data.features && data.features.length > 0) {
+                                  const street =
+                                    data.features[0].place_text ||
+                                    data.features[0].place_name.split(",")[0];
+                                  if (street) {
+                                    updateCaseDetail("place_street", street);
+                                    setFieldErrors((prev) => {
+                                      const n = { ...prev };
+                                      delete n.place_street;
+                                      return n;
+                                    });
+                                  }
+                                }
+                              })
+                              .catch((err) =>
+                                console.error("Reverse geocode error:", err),
+                              );
+                          }}
+                          cursor={
+                            !caseDetail.place_barangay || viewMode
+                              ? "default"
+                              : "crosshair"
+                          }
+                        >
+                          {selectedBrgyFeature && (
+                            <Source
+                              id="brgy-boundary"
+                              type="geojson"
+                              data={selectedBrgyFeature}
+                            >
+                              <Layer
+                                id="brgy-fill"
+                                type="fill"
+                                paint={{
+                                  "fill-color": "#1e3a5f",
+                                  "fill-opacity": 0.08,
+                                }}
+                              />
+                              <Layer
+                                id="brgy-outline"
+                                type="line"
+                                paint={{
+                                  "line-color": "#1e3a5f",
+                                  "line-width": 2.5,
+                                  "line-dasharray": [2, 1],
+                                }}
+                              />
+                            </Source>
                           )}
+                          {caseDetail.lat && caseDetail.lng && (
+                            <Marker
+                              longitude={parseFloat(caseDetail.lng)}
+                              latitude={parseFloat(caseDetail.lat)}
+                              anchor="bottom"
+                            >
+                              <div
+                                style={{
+                                  width: "26px",
+                                  height: "26px",
+                                  borderRadius: "50% 50% 50% 0",
+                                  background: (() => {
+                                    const colors = {
+                                      Murder: "#7c3aed",
+                                      Homicide: "#8b5cf6",
+                                      Rape: "#ec4899",
+                                      Robbery: "#ef4444",
+                                      Theft: "#f97316",
+                                      "Physical Injury": "#eab308",
+                                      "Carnapping - MC": "#3b82f6",
+                                      "Carnapping - MV": "#0ea5e9",
+                                      "Special Complex Crime": "#14b8a6",
+                                    };
+                                    return (
+                                      colors[caseDetail.incident_type] ||
+                                      "#c1272d"
+                                    );
+                                  })(),
+                                  border: "2px solid white",
+                                  transform: "rotate(-45deg)",
+                                  boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                                }}
+                              />
+                            </Marker>
+                          )}
+                        </Map>
                       </div>
 
-                      {caseDetail.place_barangay === "Other" && (
-                        <div
-                          className="eb-modal-form-group"
-                          style={{ gridColumn: "span 4" }}
+                      <small
+                        style={{
+                          color: "#6b7280",
+                          fontSize: "11px",
+                          display: "block",
+                          marginTop: "5px",
+                        }}
+                      >
+                        {caseDetail.place_barangay
+                          ? `Pinning inside ${caseDetail.place_barangay}. Click the map to drop a pin.`
+                          : "Select a barangay above to activate the map."}
+                      </small>
+                      {fieldErrors.pin_location && (
+                        <span
+                          className="eb-field-error eb-pin-location-error"
+                          style={{ marginTop: "6px", display: "block" }}
                         >
-                          <label className="eb-modal-label">
-                            Specify Location *
-                          </label>
-                          <input
-                            type="text"
-                            className={`eb-modal-input ${fieldErrors.place_barangay_other ? "error" : ""}`}
-                            placeholder="e.g., Highway, Open Area"
-                            value={caseDetail.place_barangay_other || ""}
-                            maxLength="100"
-                            onChange={(e) => {
-                              updateCaseDetail(
-                                "place_barangay_other",
-                                e.target.value,
-                              );
-                              if (
-                                e.target.value.trim().length > 0 &&
-                                fieldErrors.place_barangay_other
-                              ) {
-                                const newErrors = { ...fieldErrors };
-                                delete newErrors.place_barangay_other;
-                                setFieldErrors(newErrors);
-                              }
-                            }}
-                          />
-                          <FieldError
-                            error={fieldErrors.place_barangay_other}
-                          />
-                        </div>
+                          {fieldErrors.pin_location}
+                        </span>
                       )}
+                      {caseDetail.lat &&
+                        caseDetail.lng &&
+                        isPinOutsideBoundary() && (
+                          <div
+                            style={{
+                              marginTop: "8px",
+                              padding: "10px 14px",
+                              background: "#fef3c7",
+                              border: "1px solid #f59e0b",
+                              borderRadius: "6px",
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: "8px",
+                            }}
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#d97706"
+                              strokeWidth="2.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              style={{ flexShrink: 0, marginTop: "1px" }}
+                            >
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" />
+                              <line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: "13px",
+                                  fontWeight: 700,
+                                  color: "#92400e",
+                                }}
+                              >
+                                Pin Location Warning
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#b45309",
+                                  marginTop: "2px",
+                                }}
+                              >
+                                The pinned location appears to be outside the
+                                selected barangay boundary (
+                                {caseDetail.place_barangay}). This may be due to
+                                an imported record with inaccurate coordinates.
+                                Please verify and re-pin on the map if needed.
+                              </div>
+                            </div>
+                          </div>
+                        )}
                     </div>
-                    
-                    
+
+                    {caseDetail.place_barangay === "Other" && (
+                      <div
+                        className="eb-modal-form-group"
+                        style={{ gridColumn: "span 4" }}
+                      >
+                        <label className="eb-modal-label">
+                          Specify Location *
+                        </label>
+                        <input
+                          type="text"
+                          className={`eb-modal-input ${fieldErrors.place_barangay_other ? "error" : ""}`}
+                          placeholder="e.g., Highway, Open Area"
+                          value={caseDetail.place_barangay_other || ""}
+                          maxLength="100"
+                          onChange={(e) => {
+                            updateCaseDetail(
+                              "place_barangay_other",
+                              e.target.value,
+                            );
+                            if (
+                              e.target.value.trim().length > 0 &&
+                              fieldErrors.place_barangay_other
+                            ) {
+                              const newErrors = { ...fieldErrors };
+                              delete newErrors.place_barangay_other;
+                              setFieldErrors(newErrors);
+                            }
+                          }}
+                        />
+                        <FieldError error={fieldErrors.place_barangay_other} />
+                      </div>
+                    )}
                   </div>
-                
+                </div>
 
                 <div className="eb-modal-footer">
                   {!viewMode && (
@@ -3495,7 +4011,7 @@ function EBlotter() {
               </optgroup>
             </select>
           </div>
-          
+
           <div className="eb-filter-group">
             <label className="eb-filter-label">Date From</label>
             <input
@@ -3579,13 +4095,13 @@ function EBlotter() {
           >
             <thead>
               <tr>
-  <th>Report Number</th>
-  <th>Crime Type</th>
-  <th>Location</th>
-  <th>Date Reported</th>
-  <th>Status</th>
-  <th>Actions</th>
-</tr>
+                <th>Report Number</th>
+                <th>Crime Type</th>
+                <th>Location</th>
+                <th>Date Reported</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
             </thead>
             <tbody>
               {loading ? null : blotters.length === 0 ? (
@@ -3651,7 +4167,7 @@ function EBlotter() {
                     </td>
                     <td>{`${b.place_barangay}`}</td>
                     <td>{formatDate(b.date_time_reported)}</td>
-                   
+
                     {activeReportTab !== "referred" && (
                       <td>
                         <span
@@ -3661,7 +4177,7 @@ function EBlotter() {
                         </span>
                       </td>
                     )}
-                                       <td>
+                    <td>
                       <div className="eb-table-actions">
                         <button
                           className="eb-action-btn eb-action-btn-view"
@@ -3692,7 +4208,6 @@ function EBlotter() {
                         </button>
                       </div>
                     </td>
-                            
                   </tr>
                 ))
               )}
@@ -3766,10 +4281,6 @@ function EBlotter() {
           </div>
         </div>
       )}
-      
-      
-
-      
     </div>
   );
 }

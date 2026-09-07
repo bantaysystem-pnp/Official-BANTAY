@@ -1,25 +1,11 @@
 import React, { useState, useEffect } from "react";
-import "./ModusManagement.css";
+import "./MobileUnitManagement.css";
 import LoadingModal from "../modals/LoadingModal";
 
-const API_URL = `${import.meta.env.VITE_API_URL}/modus-management`;
-const CRIME_TYPES = [
-  { label: "Carnapping - MC", value: "CARNAPPING - MC" },
-  { label: "Carnapping - MV", value: "CARNAPPING - MV" },
-  { label: "Homicide", value: "HOMICIDE" },
-  { label: "Murder", value: "MURDER" },
-  { label: "Physical Injury", value: "PHYSICAL INJURIES" },
-  { label: "Rape", value: "RAPE" },
-  { label: "Robbery", value: "ROBBERY" },
-  { label: "Special Complex Crime", value: "SPECIAL COMPLEX CRIME" },
-  { label: "Theft", value: "THEFT" },
-];
-const DB_TO_LABEL = Object.fromEntries(
-  CRIME_TYPES.map((c) => [c.value, c.label]),
-);
+const API_URL = `${import.meta.env.VITE_API_URL}/mobile-units`;
 const ITEMS_PER_PAGE = 15;
 
-const emptyForm = { crime_type: "", modus_name: "", description: "" };
+const emptyForm = { unit_name: "" };
 
 const EditIcon = () => (
   <svg
@@ -72,8 +58,8 @@ const RestoreIcon = () => (
   </svg>
 );
 
-function ModusManagement() {
-  const [modusList, setModusList] = useState([]);
+function MobileUnitManagement() {
+  const [unitList, setUnitList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -81,19 +67,14 @@ function ModusManagement() {
   const [errors, setErrors] = useState({});
 
   // ── Applied filters (drive fetch + table filtering) ──
-  const [filterCrime, setFilterCrime] = useState("");
   const [filterStatus, setFilterStatus] = useState("active");
   const [sortBy, setSortBy] = useState("");
 
   // ── Draft filters (what the user is editing in the UI) ──
-  const [draftCrime, setDraftCrime] = useState("");
   const [draftStatus, setDraftStatus] = useState("active");
   const [draftSort, setDraftSort] = useState("");
 
-  const isDirty =
-    draftCrime !== filterCrime ||
-    draftStatus !== filterStatus ||
-    draftSort !== sortBy;
+  const isDirty = draftStatus !== filterStatus || draftSort !== sortBy;
 
   const [toast, setToast] = useState(null);
   const [confirmModal, setConfirmModal] = useState({
@@ -107,10 +88,10 @@ function ModusManagement() {
   const token = () => localStorage.getItem("token");
 
   useEffect(() => {
-    fetchModus();
+    fetchUnits();
   }, []);
 
-  const fetchModus = async (sortOverride) => {
+  const fetchUnits = async (sortOverride) => {
     try {
       setLoading(true);
       const effectiveSort = sortOverride !== undefined ? sortOverride : sortBy;
@@ -119,7 +100,7 @@ function ModusManagement() {
         headers: { Authorization: `Bearer ${token()}` },
       });
       const data = await res.json();
-      if (data.success) setModusList(data.data);
+      if (data.success) setUnitList(data.data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -139,24 +120,19 @@ function ModusManagement() {
     setShowModal(true);
   };
 
-  const openEdit = (m) => {
-    setForm({
-      crime_type: m.crime_type,
-      modus_name: m.modus_name,
-      description: m.description || "",
-    });
+  const openEdit = (u) => {
+    setForm({ unit_name: u.unit_name });
     setErrors({});
-    setEditingId(m.id);
+    setEditingId(u.id);
     setShowModal(true);
   };
 
   const validate = () => {
     const e = {};
-    if (!form.crime_type) e.crime_type = "Required";
-    if (!form.modus_name || form.modus_name.trim().length === 0)
-      e.modus_name = "Required";
-    else if (form.modus_name.trim().length < 2)
-      e.modus_name = "At least 2 characters";
+    if (!form.unit_name || form.unit_name.trim().length === 0)
+      e.unit_name = "Required";
+    else if (form.unit_name.trim().length < 2)
+      e.unit_name = "At least 2 characters";
     return e;
   };
 
@@ -181,11 +157,11 @@ function ModusManagement() {
       if (data.success) {
         showToast(
           editingId
-            ? "Modus updated successfully!"
-            : "Modus added successfully!",
+            ? "Mobile unit updated successfully!"
+            : "Mobile unit added successfully!",
         );
         setShowModal(false);
-        fetchModus();
+        fetchUnits();
       } else {
         showToast(data.message || "Error", "error");
       }
@@ -194,20 +170,20 @@ function ModusManagement() {
     }
   };
 
-  const handleRemove = (m) => {
+  const handleRemove = (u) => {
     setConfirmModal({
       show: true,
-      id: m.id,
-      name: m.modus_name,
+      id: u.id,
+      name: u.unit_name,
       action: "remove",
     });
   };
 
-  const handleRestore = (m) => {
+  const handleRestore = (u) => {
     setConfirmModal({
       show: true,
-      id: m.id,
-      name: m.modus_name,
+      id: u.id,
+      name: u.unit_name,
       action: "restore",
     });
   };
@@ -228,10 +204,10 @@ function ModusManagement() {
       if (data.success) {
         showToast(
           action === "restore"
-            ? "Modus restored successfully!"
-            : "Modus removed successfully!",
+            ? "Mobile unit restored successfully!"
+            : "Mobile unit removed successfully!",
         );
-        fetchModus();
+        fetchUnits();
       } else {
         showToast(data.message || "Error", "error");
       }
@@ -242,34 +218,30 @@ function ModusManagement() {
 
   // ── Apply filters ──
   const handleApplyFilters = () => {
-    setFilterCrime(draftCrime);
     setFilterStatus(draftStatus);
     setSortBy(draftSort);
     setCurrentPage(1);
-    fetchModus(draftSort);
+    fetchUnits(draftSort);
   };
 
   // ── Reset filters ──
   const handleResetFilters = () => {
-    setDraftCrime("");
     setDraftStatus("active");
     setDraftSort("");
-    setFilterCrime("");
     setFilterStatus("active");
     setSortBy("");
     setCurrentPage(1);
-    fetchModus("");
+    fetchUnits("");
   };
 
-  const filtered = modusList.filter((m) => {
-    const crimeMatch = filterCrime ? m.crime_type === filterCrime : true;
+  const filtered = unitList.filter((u) => {
     const statusMatch =
       filterStatus === "active"
-        ? m.is_active
+        ? u.is_active
         : filterStatus === "removed"
-          ? !m.is_active
+          ? !u.is_active
           : true;
-    return crimeMatch && statusMatch;
+    return statusMatch;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -285,7 +257,7 @@ function ModusManagement() {
   };
 
   return (
-    <div className="mm-container">
+    <div className="mu-container">
       {/* TOAST */}
       {toast && (
         <div
@@ -317,20 +289,20 @@ function ModusManagement() {
         </div>
       )}
 
-      <LoadingModal isOpen={loading} message="Loading modus records..." />
+      <LoadingModal isOpen={loading} message="Loading mobile units..." />
 
-      <div className="mm-header">
+      <div className="mu-header">
         <div>
-          <h1>Modus Management</h1>
-          <p>Manage modus operandi classifications for index crimes</p>
+          <h1>Mobile Unit Management</h1>
+          <p>Manage mobile patrol units available for report assignment</p>
         </div>
-        <button className="mm-btn-primary" onClick={openAdd}>
-          + Add Modus
+        <button className="mu-btn-primary" onClick={openAdd}>
+          + Add Mobile Unit
         </button>
       </div>
 
       {/* Filter Bar */}
-      <div className="mm-filter-bar">
+      <div className="mu-filter-bar">
         <div
           style={{
             display: "flex",
@@ -365,20 +337,7 @@ function ModusManagement() {
         </div>
 
         <select
-          className="mm-filter-select"
-          value={draftCrime}
-          onChange={(e) => setDraftCrime(e.target.value)}
-        >
-          <option value="">All Crime Types</option>
-          {CRIME_TYPES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.label}
-            </option>
-          ))}
-        </select>
-
-        <select
-          className="mm-filter-select"
+          className="mu-filter-select"
           value={draftSort}
           onChange={(e) => setDraftSort(e.target.value)}
         >
@@ -388,7 +347,7 @@ function ModusManagement() {
         </select>
 
         <select
-          className="mm-filter-select"
+          className="mu-filter-select"
           value={draftStatus}
           onChange={(e) => setDraftStatus(e.target.value)}
         >
@@ -398,13 +357,13 @@ function ModusManagement() {
         </select>
 
         <button
-          className={`mm-apply-btn${isDirty ? " mm-apply-btn-dirty" : ""}`}
+          className={`mu-apply-btn${isDirty ? " mu-apply-btn-dirty" : ""}`}
           onClick={handleApplyFilters}
         >
           Apply Filters
         </button>
         <button
-          className="mm-reset-btn"
+          className="mu-reset-btn"
           title="Reset to defaults"
           onClick={handleResetFilters}
         >
@@ -412,14 +371,12 @@ function ModusManagement() {
         </button>
       </div>
 
-      <div className="mm-table-card">
-        <div className="mm-table-wrapper">
-          <table className="mm-table">
+      <div className="mu-table-card">
+        <div className="mu-table-wrapper">
+          <table className="mu-table">
             <thead>
               <tr>
-                <th>Crime Type</th>
-                <th>Modus Name</th>
-                <th>Description</th>
+                <th>Unit Name</th>
                 <th>Status</th>
                 <th>Created</th>
                 <th>Actions</th>
@@ -428,32 +385,26 @@ function ModusManagement() {
             <tbody>
               {paginated.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="mm-center">
+                  <td colSpan="4" className="mu-center">
                     {loading ? "Loading..." : "No records found"}
                   </td>
                 </tr>
               ) : (
-                paginated.map((m) => (
-                  <tr key={m.id}>
+                paginated.map((u) => (
+                  <tr key={u.id}>
                     <td>
-                      <span className="mm-crime-badge">
-                        {DB_TO_LABEL[m.crime_type] || m.crime_type}
-                      </span>
+                      <strong>{u.unit_name}</strong>
                     </td>
-                    <td>
-                      <strong>{m.modus_name}</strong>
-                    </td>
-                    <td className="mm-desc">{m.description || "—"}</td>
                     <td>
                       <span
-                        className={`mm-status ${m.is_active ? "active" : "inactive"}`}
+                        className={`mu-status ${u.is_active ? "active" : "inactive"}`}
                       >
-                        {m.is_active ? "Active" : "Removed"}
+                        {u.is_active ? "Active" : "Removed"}
                       </span>
                     </td>
                     <td>
-                      {m.created_at
-                        ? new Date(m.created_at).toLocaleDateString("en-PH", {
+                      {u.created_at
+                        ? new Date(u.created_at).toLocaleDateString("en-PH", {
                             year: "numeric",
                             month: "short",
                             day: "numeric",
@@ -462,24 +413,24 @@ function ModusManagement() {
                         : "—"}
                     </td>
                     <td>
-                      <div className="mm-actions">
+                      <div className="mu-actions">
                         <button
-                          className="mm-action-btn mm-action-btn-edit"
-                          onClick={() => openEdit(m)}
+                          className="mu-action-btn mu-action-btn-edit"
+                          onClick={() => openEdit(u)}
                         >
                           <EditIcon /> Edit
                         </button>
-                        {m.is_active ? (
+                        {u.is_active ? (
                           <button
-                            className="mm-action-btn mm-action-btn-remove"
-                            onClick={() => handleRemove(m)}
+                            className="mu-action-btn mu-action-btn-remove"
+                            onClick={() => handleRemove(u)}
                           >
                             <RemoveIcon /> Remove
                           </button>
                         ) : (
                           <button
-                            className="mm-action-btn mm-action-btn-restore"
-                            onClick={() => handleRestore(m)}
+                            className="mu-action-btn mu-action-btn-restore"
+                            onClick={() => handleRestore(u)}
                           >
                             <RestoreIcon /> Restore
                           </button>
@@ -495,26 +446,26 @@ function ModusManagement() {
 
         {/* Pagination */}
         {filtered.length > 0 && (
-          <div className="mm-pagination">
-            <div className="mm-pagination-info">
+          <div className="mu-pagination">
+            <div className="mu-pagination-info">
               Showing{" "}
               {Math.min((safePage - 1) * ITEMS_PER_PAGE + 1, filtered.length)}–
               {Math.min(safePage * ITEMS_PER_PAGE, filtered.length)} of{" "}
               {filtered.length} record(s)
             </div>
-            <div className="mm-pagination-controls">
+            <div className="mu-pagination-controls">
               <button
-                className="mm-pagination-btn"
+                className="mu-pagination-btn"
                 onClick={() => handlePageChange(safePage - 1)}
                 disabled={safePage === 1}
               >
                 Previous
               </button>
-              <span className="mm-pagination-current">
+              <span className="mu-pagination-current">
                 Page {safePage} of {totalPages || 1}
               </span>
               <button
-                className="mm-pagination-btn"
+                className="mu-pagination-btn"
                 onClick={() => handlePageChange(safePage + 1)}
                 disabled={safePage === totalPages}
               >
@@ -527,12 +478,12 @@ function ModusManagement() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="mm-modal-overlay">
+        <div className="mu-modal-overlay">
           <div
-            className="mm-modal"
-            style={{ maxWidth: "620px", width: "92vw" }}
+            className="mu-modal"
+            style={{ maxWidth: "520px", width: "92vw" }}
           >
-            <div className="mm-modal-header">
+            <div className="mu-modal-header">
               <div
                 style={{ display: "flex", alignItems: "center", gap: "14px" }}
               >
@@ -582,9 +533,7 @@ function ModusManagement() {
                       color: "white",
                     }}
                   >
-                    {editingId
-                      ? "Edit Modus Operandi"
-                      : "Add New Modus Operandi"}
+                    {editingId ? "Edit Mobile Unit" : "Add New Mobile Unit"}
                   </h2>
                   <p
                     style={{
@@ -595,24 +544,24 @@ function ModusManagement() {
                     }}
                   >
                     {editingId
-                      ? "Modify existing modus operandi record"
-                      : "Register a new modus operandi classification"}
+                      ? "Modify existing mobile unit record"
+                      : "Register a new mobile patrol unit"}
                   </p>
                 </div>
               </div>
               <span
-                className="mm-modal-close"
+                className="mu-modal-close"
                 onClick={() => setShowModal(false)}
               >
                 &times;
               </span>
             </div>
             <div
-              className="mm-modal-body"
+              className="mu-modal-body"
               style={{ padding: "28px 32px", gap: "24px" }}
             >
-              {/* Crime Type */}
-              <div className="mm-form-group">
+              {/* Unit Name */}
+              <div className="mu-form-group">
                 <label
                   style={{
                     fontSize: "12px",
@@ -622,7 +571,7 @@ function ModusManagement() {
                     letterSpacing: "0.6px",
                   }}
                 >
-                  Crime Type{" "}
+                  Unit Name{" "}
                   <span style={{ color: "var(--red-primary)" }}>*</span>
                 </label>
                 <p
@@ -632,64 +581,19 @@ function ModusManagement() {
                     color: "#9ca3af",
                   }}
                 >
-                  Select the index crime this modus falls under
-                </p>
-                <select
-                  className={`mm-input ${errors.crime_type ? "error" : ""}`}
-                  value={form.crime_type}
-                  style={{ height: "44px", fontSize: "14px" }}
-                  onChange={(e) => {
-                    setForm((p) => ({ ...p, crime_type: e.target.value }));
-                    setErrors((p) => ({ ...p, crime_type: "" }));
-                  }}
-                >
-                  <option value="">— Select Crime Type —</option>
-                  {CRIME_TYPES.map((c) => (
-                    <option key={c.value} value={c.value}>
-                      {c.label}
-                    </option>
-                  ))}
-                </select>
-
-                {errors.crime_type && (
-                  <span className="mm-error">{errors.crime_type}</span>
-                )}
-              </div>
-
-              {/* Modus Name */}
-              <div className="mm-form-group">
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#374151",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.6px",
-                  }}
-                >
-                  Modus Name{" "}
-                  <span style={{ color: "var(--red-primary)" }}>*</span>
-                </label>
-                <p
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: "12px",
-                    color: "#9ca3af",
-                  }}
-                >
-                  Common name or terminology used (e.g., Akyat Bahay,
-                  Budol-Budol)
+                  Identifier for this mobile patrol unit (e.g., Mobile 1, Alpha
+                  Team)
                 </p>
                 <input
                   type="text"
-                  className={`mm-input ${errors.modus_name ? "error" : ""}`}
-                  placeholder="e.g., Akyat Bahay"
-                  value={form.modus_name}
-                  maxLength="100"
+                  className={`mu-input ${errors.unit_name ? "error" : ""}`}
+                  placeholder="e.g., Mobile 1"
+                  value={form.unit_name}
+                  maxLength="150"
                   style={{ height: "44px", fontSize: "14px" }}
                   onChange={(e) => {
-                    setForm((p) => ({ ...p, modus_name: e.target.value }));
-                    setErrors((p) => ({ ...p, modus_name: "" }));
+                    setForm((p) => ({ ...p, unit_name: e.target.value }));
+                    setErrors((p) => ({ ...p, unit_name: "" }));
                   }}
                 />
                 <div
@@ -699,91 +603,26 @@ function ModusManagement() {
                     marginTop: "5px",
                   }}
                 >
-                  {errors.modus_name ? (
-                    <span className="mm-error">{errors.modus_name}</span>
+                  {errors.unit_name ? (
+                    <span className="mu-error">{errors.unit_name}</span>
                   ) : (
                     <span />
                   )}
                   <span style={{ fontSize: "11px", color: "#9ca3af" }}>
-                    {form.modus_name.length}/100
-                  </span>
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="mm-form-group">
-                <label
-                  style={{
-                    fontSize: "12px",
-                    fontWeight: 700,
-                    color: "#374151",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.6px",
-                  }}
-                >
-                  Description{" "}
-                  <span
-                    style={{
-                      color: "#9ca3af",
-                      fontWeight: 400,
-                      textTransform: "none",
-                    }}
-                  >
-                    (optional)
-                  </span>
-                </label>
-                <p
-                  style={{
-                    margin: "0 0 8px",
-                    fontSize: "12px",
-                    color: "#9ca3af",
-                  }}
-                >
-                  Brief explanation of how this modus is typically carried out
-                </p>
-                <textarea
-                  className="mm-input"
-                  rows="4"
-                  placeholder="Describe how this modus operandi is typically carried out..."
-                  value={form.description}
-                  maxLength="500"
-                  style={{
-                    fontSize: "14px",
-                    resize: "vertical",
-                    minHeight: "100px",
-                  }}
-                  onChange={(e) =>
-                    setForm((p) => ({ ...p, description: e.target.value }))
-                  }
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginTop: "5px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color:
-                        form.description.length > 450 ? "#dc2626" : "#9ca3af",
-                    }}
-                  >
-                    {form.description.length}/500
+                    {form.unit_name.length}/150
                   </span>
                 </div>
               </div>
             </div>
-            <div className="mm-modal-footer">
+            <div className="mu-modal-footer">
               <button
-                className="mm-btn-secondary"
+                className="mu-btn-secondary"
                 onClick={() => setShowModal(false)}
               >
                 Cancel
               </button>
-              <button className="mm-btn-primary" onClick={handleSubmit}>
-                {editingId ? "Update" : "Add Modus"}
+              <button className="mu-btn-primary" onClick={handleSubmit}>
+                {editingId ? "Update" : "Add Mobile Unit"}
               </button>
             </div>
           </div>
@@ -792,8 +631,8 @@ function ModusManagement() {
 
       {/* Remove / Restore Confirm Modal */}
       {confirmModal.show && (
-        <div className="mm-modal-overlay" style={{ zIndex: 10000 }}>
-          <div className="mm-modal" style={{ maxWidth: "440px", padding: 0 }}>
+        <div className="mu-modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="mu-modal" style={{ maxWidth: "440px", padding: 0 }}>
             {/* Header */}
             <div
               style={{
@@ -862,8 +701,8 @@ function ModusManagement() {
                   }}
                 >
                   {confirmModal.action === "remove"
-                    ? "Remove Modus"
-                    : "Restore Modus"}
+                    ? "Remove Mobile Unit"
+                    : "Restore Mobile Unit"}
                 </h3>
                 <p
                   style={{
@@ -874,8 +713,8 @@ function ModusManagement() {
                   }}
                 >
                   {confirmModal.action === "remove"
-                    ? "This will disable the modus from use"
-                    : "This will re-enable the modus for use"}
+                    ? "This will disable the unit from assignment"
+                    : "This will re-enable the unit for assignment"}
                 </p>
               </div>
               <span
@@ -917,8 +756,8 @@ function ModusManagement() {
                   </strong>
                   ?<br />
                   <span style={{ color: "#6b7280", fontSize: "13px" }}>
-                    It will be marked as <em>Removed</em> and hidden from active
-                    use. You can restore it anytime.
+                    It will be marked as <em>Removed</em> and hidden from the
+                    assignment dropdown. You can restore it anytime.
                   </span>
                 </p>
               ) : (
@@ -936,8 +775,8 @@ function ModusManagement() {
                   </strong>
                   ?<br />
                   <span style={{ color: "#6b7280", fontSize: "13px" }}>
-                    It will be marked as <em>Active</em> and available for use
-                    in reports.
+                    It will be marked as <em>Active</em> and available for
+                    assignment on reports.
                   </span>
                 </p>
               )}
@@ -956,7 +795,7 @@ function ModusManagement() {
               }}
             >
               <button
-                className="mm-btn-secondary"
+                className="mu-btn-secondary"
                 onClick={() =>
                   setConfirmModal({
                     show: false,
@@ -971,8 +810,8 @@ function ModusManagement() {
               <button
                 className={
                   confirmModal.action === "remove"
-                    ? "mm-btn-danger"
-                    : "mm-btn-success"
+                    ? "mu-btn-danger"
+                    : "mu-btn-success"
                 }
                 onClick={confirmAction}
               >
@@ -988,4 +827,4 @@ function ModusManagement() {
   );
 }
 
-export default ModusManagement;
+export default MobileUnitManagement;

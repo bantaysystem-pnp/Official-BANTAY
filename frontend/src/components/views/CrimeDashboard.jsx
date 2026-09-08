@@ -2770,7 +2770,14 @@ const CrimeDashboard = () => {
     })
       .then((r) => r.json())
       .then((json) => {
-        if (json.success) setMobileUnitOptions(json.data);
+        if (json.success) {
+          // localeCompare's numeric option treats embedded digits as numbers,
+          // not characters — "10" sorts after "2" instead of before it.
+          const sorted = [...json.data].sort((a, b) =>
+            a.unit_name.localeCompare(b.unit_name, undefined, { numeric: true }),
+          );
+          setMobileUnitOptions(sorted);
+        }
       })
       .catch((err) => console.warn("Failed to load mobile units:", err));
   }, []);

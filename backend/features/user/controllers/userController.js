@@ -9,7 +9,6 @@ const emailService = require("../../user/services/emailService");
 const UserValidator = require("../validators/userValidator");
 
 const { logAudit, getClientIp } = require("../../../shared/utils/auditLogger");
-const { notifyAllByRole } = require("../../notifications/notificationService");
 
 const MAX_REAUTH_ATTEMPTS = 5;
 const REAUTH_LOCKOUT_MINUTES = 15;
@@ -526,18 +525,7 @@ const registerUser = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-    await notifyAllByRole(
-      ["Administrator", "Technical Administrator"],
-      {
-        senderId: req.user.user_id,
-        senderName: req.user.username,
-        type: "USER_REGISTERED",
-        title: "New Account Created",
-        message: `New ${userType} account created: ${username} (${role})`,
-        linkTo: "/user-management",
-      },
-      req.user.user_id,
-    );
+    
     res.status(201).json({
       success: true,
       message: `Account created. A verification email has been sent to ${trimmedEmail}.`,
@@ -1141,14 +1129,7 @@ const lockUser = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-    // await notifyAllByRole(["Administrator", "Technical Administrator"], {
-    //   senderId: req.user.user_id,
-    //   senderName: req.user.username,
-    //   type: "ACCOUNT_LOCKED",
-    //   title: "Account Locked",
-    //   message: `${req.user.username} locked account ID ${id}`,
-    //   linkTo: "/user-management",
-    // }, req.user.user_id);
+    
     res.json({ success: true, message: "Account locked successfully" });
   } catch (err) {
     console.error("Lock account error:", err);

@@ -2,10 +2,7 @@
 
 const pool = require("../../../config/database");
 const { logAudit, getClientIp } = require("../../../shared/utils/auditLogger");
-const {
-  createNotification,
-  notifyAllByRole,
-} = require("../../notifications/notificationService");
+
 
 // Small helper — cases_v2 no longer carries its own display identifier
 // (no case_number column), so everywhere the old code used case_number for
@@ -98,15 +95,6 @@ const assignInvestigator = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-    await createNotification({
-      recipientId: assigned_io_id,
-      senderId: req.user.user_id,
-      senderName: req.user.username,
-      type: "CASE_ASSIGNED",
-      title: "Case Assigned to You",
-      message: `You have been assigned to ${reportNumber}`,
-      linkTo: "/case-management",
-    });
     return res.status(200).json({
       success: true,
       message: "Investigator assigned successfully",
@@ -181,30 +169,11 @@ const updateStatus = async (req, res) => {
     // Notify the assigned investigator (only if someone is assigned)
     const assignedIoId = caseResult.rows[0].assigned_io_id;
     if (assignedIoId && assignedIoId !== req.user.user_id) {
-      await createNotification({
-        recipientId: assignedIoId,
-        senderId: req.user.user_id,
-        senderName: req.user.username,
-        type: "CASE_ASSIGNED",
-        title: "Case Status Updated",
-        message: `${reportNumber} status changed to "${status}"`,
-        linkTo: "/case-management",
-      });
+      
     }
     // Notify admins only when investigator changes it (exclude self)
     if (req.user.role === "Investigator") {
-      await notifyAllByRole(
-        ["Administrator", "Technical Administrator"],
-        {
-          senderId: req.user.user_id,
-          senderName: req.user.username,
-          type: "CASE_ASSIGNED",
-          title: "Case Status Updated",
-          message: `${req.user.username} updated ${reportNumber} to "${status}"`,
-          linkTo: "/case-management",
-        },
-        req.user.user_id,
-      );
+      
     }
     return res.status(200).json({
       success: true,
@@ -473,30 +442,11 @@ const addNote = async (req, res) => {
 
     // Notify investigator if someone else added the note
     if (assignedIoId && assignedIoId !== req.user.user_id) {
-      await createNotification({
-        recipientId: assignedIoId,
-        senderId: req.user.user_id,
-        senderName: req.user.username,
-        type: "CASE_ASSIGNED",
-        title: "New Note Added",
-        message: `${req.user.username} added a note to ${reportNumber}`,
-        linkTo: "/case-management",
-      });
+      
     }
     // Notify admins if investigator added the note
     if (req.user.role === "Investigator") {
-      await notifyAllByRole(
-        ["Administrator", "Technical Administrator"],
-        {
-          senderId: req.user.user_id,
-          senderName: req.user.username,
-          type: "CASE_ASSIGNED",
-          title: "New Note Added",
-          message: `${req.user.username} added a note to ${reportNumber}`,
-          linkTo: "/case-management",
-        },
-        req.user.user_id,
-      );
+      
     }
     return res.status(201).json({
       success: true,
@@ -552,29 +502,10 @@ const updatePriority = async (req, res) => {
 
     const assignedIoId = caseResult.rows[0].assigned_io_id;
     if (assignedIoId && assignedIoId !== req.user.user_id) {
-      await createNotification({
-        recipientId: assignedIoId,
-        senderId: req.user.user_id,
-        senderName: req.user.username,
-        type: "CASE_ASSIGNED",
-        title: "Case Priority Updated",
-        message: `${reportNumber} priority changed to "${priority}"`,
-        linkTo: "/case-management",
-      });
+      
     }
     if (req.user.role === "Investigator") {
-      await notifyAllByRole(
-        ["Administrator", "Technical Administrator"],
-        {
-          senderId: req.user.user_id,
-          senderName: req.user.username,
-          type: "CASE_ASSIGNED",
-          title: "Case Priority Updated",
-          message: `${req.user.username} updated ${reportNumber} priority to "${priority}"`,
-          linkTo: "/case-management",
-        },
-        req.user.user_id,
-      );
+      
     }
 
     res.json({ success: true, data: result.rows[0] });

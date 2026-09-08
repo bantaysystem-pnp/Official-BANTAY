@@ -4,7 +4,6 @@ const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 const tokenManager = require("./shared/utils/tokenManager");
-const { recoverPendingReferrals } = require("./jobs/referralReminderJob");
 
 const app = express();
 //
@@ -40,7 +39,7 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));  // ← was "10k
 
 // ── 3. Database ───────────────────────────────────────────────────────────────
 require("./config/database");
-recoverPendingReferrals();
+
 
 // ── 4. Routes ─────────────────────────────────────────────────────────────────
 app.use("/auth", require("./features/auth/routes/authRoutes"));

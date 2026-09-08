@@ -12,7 +12,6 @@ import {
 import ImportBlotterModal from "../modals/ImportBlotterModal";
 import LoadingModal from "../modals/LoadingModal";
 import ExportBlotterModal from "../modals/ExportBlotterModal";
-import PdfPreviewModal from "../modals/PdfPreviewModal";
 
 // ─── FEATURE FLAGS ────────────────────────────────────────────────────────
 const SHOW_IMPORT_BUTTON = true; // Set to false to hide Import button + disable the import modal
@@ -213,7 +212,8 @@ function EBlotter() {
   const [typeOfOperationOptions, setTypeOfOperationOptions] = useState([]);
   const [newTypeOfOperationInput, setNewTypeOfOperationInput] = useState("");
   const [addingTypeOfOperation, setAddingTypeOfOperation] = useState(false);
-  const [showAddTypeOfOperationInput, setShowAddTypeOfOperationInput] = useState(false);
+  const [showAddTypeOfOperationInput, setShowAddTypeOfOperationInput] =
+    useState(false);
   const [streetSuggestions, setStreetSuggestions] = useState([]);
   const [showStreetDropdown, setShowStreetDropdown] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -254,7 +254,6 @@ function EBlotter() {
 
   const [showExportModal, setShowExportModal] = useState(false);
   const [isExportLoading, setIsExportLoading] = useState(false);
-  const [pdfPreview, setPdfPreview] = useState(null);
 
   const [filters, setFilters] = useState({
     search: "",
@@ -339,7 +338,11 @@ function EBlotter() {
       try {
         const res = await fetch(
           `${import.meta.env.VITE_API_URL}/blotters/type-of-operation`,
-          { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } },
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          },
         );
         const data = await res.json();
         if (data.success) setTypeOfOperationOptions(data.data);
@@ -393,9 +396,14 @@ function EBlotter() {
   useEffect(() => {
     const fetchMobileUnits = async () => {
       try {
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/mobile-units`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
-        });
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/mobile-units`,
+          {
+            headers: {
+              Authorization: `Bearer ${localStorage.getItem("token")}`,
+            },
+          },
+        );
         const data = await res.json();
         // Blotter form only offers currently-active units for assignment —
         // Mobile Unit Management is where units get removed/restored.
@@ -480,23 +488,21 @@ function EBlotter() {
         throw new Error(msg);
       }
 
-      const filename = `blotter_${dateFrom}_to_${dateTo}.pdf`;
+      // Excel-only now — no preview step, straight to download.
+      const filename = `blotter_export_${dateFrom}_to_${dateTo}.xlsx`;
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
-      setPdfPreview({
-        blobUrl,
-        download: () => {
-          const link = document.createElement("a");
-          link.href = blobUrl;
-          link.download = filename;
-          document.body.appendChild(link);
-          link.click();
-          link.remove();
-        },
-        revoke: () => URL.revokeObjectURL(blobUrl),
-      });
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(blobUrl);
+      showReactToast(
+        "Export downloaded — this file can be re-imported directly.",
+      );
     } catch (err) {
-      clearTimeout(timeoutId);
       if (err.name === "AbortError") {
         showReactToast(
           "Export is taking too long (2+ min). The server may be overloaded — try a smaller date range or check server logs.",
@@ -879,12 +885,18 @@ function EBlotter() {
       const data = await res.json();
 
       if (data.success) {
-        const newEntry = { id: data.data.id, unit_name: data.data.unit_name, is_active: true };
+        const newEntry = {
+          id: data.data.id,
+          unit_name: data.data.unit_name,
+          is_active: true,
+        };
         setMobileUnits((prev) => {
           const alreadyThere = prev.some((u) => u.id === newEntry.id);
           return alreadyThere
             ? prev
-            : [...prev, newEntry].sort((a, b) => a.unit_name.localeCompare(b.unit_name));
+            : [...prev, newEntry].sort((a, b) =>
+                a.unit_name.localeCompare(b.unit_name),
+              );
         });
         updateCaseDetail("assigned_mobile_id", String(newEntry.id));
         setShowAddMobileUnitInput(false);
@@ -909,7 +921,10 @@ function EBlotter() {
       }
     } catch (err) {
       console.error("Add mobile unit error:", err);
-      showReactToast("Failed to add mobile unit. Check your connection.", "error");
+      showReactToast(
+        "Failed to add mobile unit. Check your connection.",
+        "error",
+      );
       return null;
     } finally {
       setAddingMobileUnit(false);
@@ -1610,7 +1625,8 @@ function EBlotter() {
         return;
       }
     }
-    const effectiveMobileUnitId = pendingMobileUnitId || caseDetail.assigned_mobile_id || null;
+    const effectiveMobileUnitId =
+      pendingMobileUnitId || caseDetail.assigned_mobile_id || null;
 
     // Validate Step 3 before submitting
     const errors = validateCurrentStep(offenses);
@@ -1806,7 +1822,7 @@ function EBlotter() {
             <h3>Confirm Export</h3>
             <p>
               You are about to export <b>{pendingExport.records.length}</b>{" "}
-              record(s) as PDF.
+              record(s) as Excel.
             </p>
             <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
               <button
@@ -1827,18 +1843,6 @@ function EBlotter() {
           onClose={() => setShowExportModal(false)}
           onExport={handleExport}
           isExporting={isExportLoading}
-        />
-      )}
-      {pdfPreview && (
-        <PdfPreviewModal
-          blobUrl={pdfPreview.blobUrl}
-          onDownload={() => {
-            pdfPreview.download();
-          }}
-          onClose={() => {
-            pdfPreview.revoke();
-            setPdfPreview(null);
-          }}
         />
       )}
       <LoadingModal isOpen={loading} message="Loading records..." />
@@ -2459,7 +2463,9 @@ function EBlotter() {
                           alignItems: "center",
                         }}
                       >
-                        <label className="eb-modal-label">Assigned Mobile Unit</label>
+                        <label className="eb-modal-label">
+                          Assigned Mobile Unit
+                        </label>
                         {showAddMobileUnitInput && (
                           <button
                             type="button"
@@ -2532,7 +2538,8 @@ function EBlotter() {
                             const isDuplicate =
                               trimmed.length > 0 &&
                               mobileUnits.some(
-                                (u) => u.unit_name.trim().toLowerCase() === trimmed,
+                                (u) =>
+                                  u.unit_name.trim().toLowerCase() === trimmed,
                               );
 
                             setFieldErrors((prev) => {

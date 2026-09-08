@@ -71,6 +71,22 @@ class MobileUnit {
     );
     return result.rows[0] || null;
   }
+
+  // Same find-or-reactivate-or-create pattern as findOrCreateModus /
+  // findOrCreateTypeOfOperation — used by bulk import so a typo'd unit
+  // name doesn't hard-fail the row.
+  static async findOrCreate(unitName) {
+    const existing = await this.findByName(unitName);
+    if (existing) {
+      if (!existing.is_active) {
+        const restored = await this.update(existing.id, { is_active: true });
+        return { id: restored.id, unit_name: restored.unit_name, created: false, reactivated: true };
+      }
+      return { id: existing.id, unit_name: existing.unit_name, created: false, reactivated: false };
+    }
+    const created = await this.create(unitName);
+    return { id: created.id, unit_name: created.unit_name, created: true, reactivated: false };
+  }
 }
 
 module.exports = MobileUnit;

@@ -9,6 +9,7 @@ oneYearAgo.setDate(oneYearAgo.getDate() + 1);
 const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
   const [dateFrom, setDateFrom] = useState(toIso(oneYearAgo));
   const [dateTo, setDateTo] = useState(toIso(today));
+  const [format, setFormat] = useState("pdf");
   const [checking, setChecking] = useState(false);
   const [error, setError] = useState("");
 
@@ -219,6 +220,60 @@ const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
             />
           </div>
 
+          <div style={{ marginBottom: 24 }}>
+            <label
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "#374151",
+                display: "block",
+                marginBottom: 6,
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Export Format
+            </label>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setFormat("pdf")}
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  borderRadius: 8,
+                  border: format === "pdf" ? "1.5px solid #1e3a5f" : "1.5px solid #d1d5db",
+                  background: format === "pdf" ? "#eaf0f8" : "#fff",
+                  color: format === "pdf" ? "#1e3a5f" : "#6b7280",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                PDF Report
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormat("excel")}
+                style={{
+                  flex: 1,
+                  padding: "10px 0",
+                  borderRadius: 8,
+                  border: format === "excel" ? "1.5px solid #1e3a5f" : "1.5px solid #d1d5db",
+                  background: format === "excel" ? "#eaf0f8" : "#fff",
+                  color: format === "excel" ? "#1e3a5f" : "#6b7280",
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Excel (re-importable)
+              </button>
+            </div>
+          </div>
+
           {error && (
             <p style={{ color: "#dc2626", fontSize: 13, margin: "0 0 12px" }}>
               {error}
@@ -252,7 +307,7 @@ const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
                   return;
                 }
                 setError("");
-                await onExport(dateFrom, dateTo); // parent now does count-check + confirm
+                await onExport(dateFrom, dateTo, format); // parent now does count-check + confirm
               }}
               disabled={isExporting}
               style={{
@@ -272,7 +327,7 @@ const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
                 gap: 8,
               }}
             >
-              {isExporting ? (
+                            {isExporting ? (
                 "Exporting…"
               ) : (
                 <>
@@ -290,7 +345,7 @@ const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
                     <polyline points="7 10 12 15 17 10" />
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
-                  Export PDF
+                  Export Excel
                 </>
               )}
             </button>

@@ -1,6 +1,7 @@
 // backend\features\blotter\controllers\crimeReportV2Controller.js
 
 const CrimeReportV2 = require("../models/CrimeReportV2");
+const MobileUnit = require("../../mobile-units/models/MobileUnit");
 const { logAudit, getClientIp } = require("../../../shared/utils/auditLogger");
 const XLSX = require("xlsx");
 const { normalizeOffense, deriveFromDate } = require("../utils/importUtils");
@@ -377,6 +378,21 @@ const restoreCrimeReport = async (req, res) => {
   }
 };
 
+
+
+// Collapses header variance (spacing, casing) so "Assigned Mobile Unit",
+// "assignedMobileUnit", and "ASSIGNED MOBILE UNIT" all resolve to the same
+// lookup key. Applied to every column, not just the ones that bit us before.
+const normalizeHeaderKey = (key) => key.replace(/\s+/g, "").toLowerCase();
+
+const buildNormalizedRow = (row) => {
+  const normalized = {};
+  for (const key of Object.keys(row)) {
+    normalized[normalizeHeaderKey(key)] = row[key];
+  }
+  return normalized;
+};
+
 const importCrimeReports = async (req, res) => {
   try {
     if (!req.file) {
@@ -394,9 +410,9 @@ const importCrimeReports = async (req, res) => {
       });
     }
 
-    const firstRow = rows[0];
+    const firstRowNormalized = buildNormalizedRow(rows[0]);
     const hasRequiredColumns =
-      "DATE" in firstRow && "barangay" in firstRow && "offense" in firstRow;
+      "date" in firstRowNormalized && "barangay" in firstRowNormalized && "offense" in firstRowNormalized;
     if (!hasRequiredColumns) {
       return res.status(200).json({
         success: false,
@@ -410,45 +426,48 @@ const importCrimeReports = async (req, res) => {
     const seenReportNumbers = new Set();
 
     for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
+      const r = buildNormalizedRow(rows[i]);
       const rowNum = i + 2; // account for header row
 
-      const crimeType = normalizeOffense(row.offense);
+      const crimeType = normalizeOffense(r.offense);
       if (!crimeType) {
-        errors.push({ row: rowNum, field: "CRIME_TYPE", message: `Unrecognized offense: "${row.offense}"` });
+        errors.push({ row: rowNum, field: "CRIME_TYPE", message: `Unrecognized offense: "${r.offense}"` });
         continue;
       }
 
-      const barangay = normalizeBarangay(row.barangay);
+      const barangay = normalizeBarangay(r.barangay);
       if (!barangay || !VALID_BARANGAYS.includes(barangay)) {
-        errors.push({ row: rowNum, field: "BARANGAY", message: `Unrecognized barangay: "${row.barangay}"` });
+        errors.push({ row: rowNum, field: "BARANGAY", message: `Unrecognized barangay: "${r.barangay}"` });
         continue;
       }
 
-      let dateTimeCommission = null;
-      if (row.DATE) {
-        const baseDate = row.DATE instanceof Date ? row.DATE : new Date(row.DATE);
-        if (!isNaN(baseDate.getTime())) {
-          if (row.TIME) {
-            const timeMatch = String(row.TIME).match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
-            if (timeMatch) {
-              let hours = parseInt(timeMatch[1], 10);
-              const minutes = parseInt(timeMatch[2] || "0", 10);
-              const meridian = timeMatch[3]?.toUpperCase();
-              if (meridian === "PM" && hours < 12) hours += 12;
-              if (meridian === "AM" && hours === 12) hours = 0;
-              baseDate.setHours(hours, minutes, 0, 0);
-            }
-          }
-          dateTimeCommission = baseDate;
-        }
-      }
-      if (!dateTimeCommission) {
+      const baseDate = r.date
+        ? (r.date instanceof Date ? r.date : new Date(r.date))
+        : null;
+      if (!baseDate || isNaN(baseDate.getTime())) {
         errors.push({ row: rowNum, field: "DATE_COMMISSION", message: "Invalid or missing DATE" });
         continue;
       }
 
-      const reportNumber = String(row["Report Number"] || "").trim();
+      // TIME is mandatory — no more silently defaulting to midnight
+      if (!r.time) {
+        errors.push({ row: rowNum, field: "TIME_COMMISSION", message: "Missing TIME" });
+        continue;
+      }
+      const timeMatch = String(r.time).match(/(\d{1,2}):?(\d{2})?\s*(AM|PM)?/i);
+      if (!timeMatch) {
+        errors.push({ row: rowNum, field: "TIME_COMMISSION", message: `Unrecognized TIME format: "${r.time}"` });
+        continue;
+      }
+      let hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2] || "0", 10);
+      const meridian = timeMatch[3]?.toUpperCase();
+      if (meridian === "PM" && hours < 12) hours += 12;
+      if (meridian === "AM" && hours === 12) hours = 0;
+      baseDate.setHours(hours, minutes, 0, 0);
+      const dateTimeCommission = baseDate;
+
+      const reportNumber = String(r.reportnumber || "").trim();
       if (reportNumber) {
         if (seenReportNumbers.has(reportNumber)) {
           errors.push({ row: rowNum, field: "REPORT_NUMBER", message: `Duplicate Report Number in file: "${reportNumber}"` });
@@ -459,30 +478,27 @@ const importCrimeReports = async (req, res) => {
 
       const VALID_STAGES = ["CONSUMMATED", "ATTEMPTED", "FRUSTRATED"];
       let stageOfFelony = null;
-      if (row.stageOfFelony) {
-        const normalized = String(row.stageOfFelony).trim().toUpperCase();
+      if (r.stageoffelony) {
+        const normalized = String(r.stageoffelony).trim().toUpperCase();
         if (VALID_STAGES.includes(normalized)) {
           stageOfFelony = normalized;
         } else {
-          errors.push({ row: rowNum, field: "STAGE_OF_FELONY", message: `Unrecognized Stage of Felony: "${row.stageOfFelony}"` });
+          errors.push({ row: rowNum, field: "STAGE_OF_FELONY", message: `Unrecognized Stage of Felony: "${r.stageoffelony}"` });
         }
       }
 
+      // Optional — blank cell means no Type of Operation recorded, not a failure.
+      const rawTypeOfOperation = String(r.typeofoperation || "").trim();
       let typeOfOperation = null;
-      const rawTypeOfOperation = String(row.typeofPlace || "").trim(); // Excel template column header unchanged for backward compatibility
+      let typeOfOperationResult = null;
       if (rawTypeOfOperation) {
-        typeOfOperation = VALID_TYPE_OF_OPERATION.find(
-          (t) => t.toLowerCase() === rawTypeOfOperation.toLowerCase(),
-        );
-      }
-      if (!typeOfOperation) {
-        errors.push({ row: rowNum, field: "TYPE_OF_OPERATION", message: `Unrecognized Type of Operation: "${row.typeofPlace}"` });
-        continue;
+        typeOfOperationResult = await CrimeReportV2.findOrCreateTypeOfOperation(rawTypeOfOperation);
+        typeOfOperation = typeOfOperationResult.operation_name;
       }
 
       let modusReferenceId = null;
       let modusCreated = false;
-      const rawModus = String(row.modus || "").trim();
+      const rawModus = String(r.modus || "").trim();
       if (rawModus) {
         const modusCrimeType = OFFENSE_TO_MODUS_CRIME_TYPE[crimeType];
         if (modusCrimeType) {
@@ -490,6 +506,18 @@ const importCrimeReports = async (req, res) => {
           modusReferenceId = modusResult.id;
           modusCreated = modusResult.created;
         }
+      }
+
+      // Assigned Mobile Unit — optional, like modus. Blank cell = unassigned.
+      let assignedMobileId = null;
+      let mobileUnitCreated = false;
+      let mobileUnitReactivated = false;
+      const rawMobileUnit = String(r.assignedmobileunit || "").trim();
+      if (rawMobileUnit) {
+        const mobileUnitResult = await MobileUnit.findOrCreate(rawMobileUnit);
+        assignedMobileId = mobileUnitResult.id;
+        mobileUnitCreated = mobileUnitResult.created;
+        mobileUnitReactivated = mobileUnitResult.reactivated;
       }
 
       const reportData = {
@@ -501,14 +529,15 @@ const importCrimeReports = async (req, res) => {
         date_time_reported: dateTimeCommission,
         place_barangay: barangay,
         type_of_operation: typeOfOperation,
-        lat: row.lat || null,
-        lng: row.lng || null,
+        lat: r.lat || null,
+        lng: r.lng || null,
+        assigned_mobile_id: assignedMobileId,
       };
 
       try {
         const result = await CrimeReportV2.create(reportData, req.user.user_id);
-        if (row.casestatus) {
-          await CrimeReportV2.setCaseStatus(result.report_id, String(row.casestatus).trim());
+        if (r.casestatus) {
+          await CrimeReportV2.setCaseStatus(result.report_id, String(r.casestatus).trim());
         }
         if (modusCreated) {
           await logAudit({
@@ -517,6 +546,41 @@ const importCrimeReports = async (req, res) => {
             eventName: "Modus Auto-Created (Import)",
             description: `Created modus "${rawModus}" for ${OFFENSE_TO_MODUS_CRIME_TYPE[crimeType]}`,
             action: "CREATE",
+            status: "success",
+            source: "Web Portal",
+            ipAddress: getClientIp(req),
+          });
+        }
+        if (typeOfOperationResult?.created) {
+          await logAudit({
+            userId: req.user?.user_id,
+            username: req.user?.username,
+            eventName: "Type of Operation Auto-Created (Import)",
+            description: `Created Type of Operation "${rawTypeOfOperation}"`,
+            action: "CREATE",
+            status: "success",
+            source: "Web Portal",
+            ipAddress: getClientIp(req),
+          });
+        }
+        if (mobileUnitCreated) {
+          await logAudit({
+            userId: req.user?.user_id,
+            username: req.user?.username,
+            eventName: "Mobile Unit Auto-Created (Import)",
+            description: `Created mobile unit "${rawMobileUnit}"`,
+            action: "CREATE",
+            status: "success",
+            source: "Web Portal",
+            ipAddress: getClientIp(req),
+          });
+        } else if (mobileUnitReactivated) {
+          await logAudit({
+            userId: req.user?.user_id,
+            username: req.user?.username,
+            eventName: "Mobile Unit Restored (Import)",
+            description: `Restored mobile unit "${rawMobileUnit}"`,
+            action: "UPDATE",
             status: "success",
             source: "Web Portal",
             ipAddress: getClientIp(req),

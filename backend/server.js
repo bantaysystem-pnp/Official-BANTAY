@@ -52,11 +52,8 @@ app.use("/mobile-units",     require("./features/mobile-units/routes/mobileUnitR
 app.use("/cases",            require("./features/cases/routes/casesRoutes"));
 app.use("/crime-map",        require("./features/crime-map/routes/crimeMapRoutes"));
 app.use("/crime-dashboard",        require("./features/dashboard/routes/crimeDashboardRoutes"));
-app.use('/gps', require('./features/gps/routes/gpsRoutes'));
 app.use("/ai-assessment", require("./features/ai-assessment/routes/assessment.routes"));
-
 app.use("/audit-log", require("./features/audit/routes/auditRoutes"));
-app.use("/notifications", require("./features/notifications/notificationRoutes"));
 
 
 // ── 5. Static uploads ─────────────────────────────────────────────────────────

@@ -183,7 +183,7 @@ const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
 
           <div style={{ marginBottom: 24 }}>
             <label
-              style={{
+              style={{ //
                 fontSize: 12,
                 fontWeight: 600,
                 color: "#374151",

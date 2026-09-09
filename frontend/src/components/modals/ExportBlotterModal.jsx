@@ -255,7 +255,7 @@ const ExportBlotterModal = ({ onClose, onExport, isExporting }) => {
                 await onExport(dateFrom, dateTo); // parent now does count-check + confirm
               }}
               disabled={isExporting}
-              style={{
+              style={{ //
                 flex: 2,
                 padding: "10px 0",
                 border: "none",

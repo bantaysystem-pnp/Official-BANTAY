@@ -90,7 +90,7 @@ class CrimeReportV2 {
         TO_CHAR(cr.date_time_commission, 'YYYY-MM-DD"T"HH24:MI') as date_time_commission,
         TO_CHAR(cr.date_time_reported, 'YYYY-MM-DD"T"HH24:MI') as date_time_reported,
         cmr.modus_name,
-        c.id as case_id, c.status, c.priority, c.assigned_io_id
+        c.id as case_id, c.status, c.priority, c.assigned_io_name
       FROM crime_reports_v2 cr
       LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
       LEFT JOIN mobile_units mu ON mu.id = cr.assigned_mobile_id
@@ -142,7 +142,7 @@ class CrimeReportV2 {
         TO_CHAR(cr.date_time_commission, 'YYYY-MM-DD"T"HH24:MI') as date_time_commission,
         TO_CHAR(cr.date_time_reported, 'YYYY-MM-DD"T"HH24:MI') as date_time_reported,
         cmr.modus_name,
-        c.id as case_id, c.status, c.priority, c.assigned_io_id, c.updated_at as case_updated_at
+        c.id as case_id, c.status, c.priority, c.assigned_io_name, c.updated_at as case_updated_at
        FROM crime_reports_v2 cr
        LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id
        LEFT JOIN mobile_units mu ON mu.id = cr.assigned_mobile_id

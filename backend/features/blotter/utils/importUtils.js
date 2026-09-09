@@ -14,6 +14,7 @@ const OFFENSE_MAP = {
   "RAPE": "Rape",
   "ROBBERY": "Robbery",
   "THEFT": "Theft",
+  "SPECIAL COMPLEX CRIME": "Special Complex Crime",
 };
 
 
@@ -31,6 +32,7 @@ function normalizeOffense(raw) {
   if (cleaned === "RAPE") return "Rape";
   if (cleaned === "ROBBERY") return "Robbery";
   if (cleaned === "THEFT") return "Theft";
+  if (cleaned === "SPECIAL COMPLEX CRIME") return "Special Complex Crime";
   return null; // unrecognized → flag
 }
 

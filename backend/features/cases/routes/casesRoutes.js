@@ -5,6 +5,7 @@ const {
   assignInvestigator,
   updateStatus,
   updatePriority,
+  updateSuspectApprehended,
   getCases,
   getCaseById,
   addNote,
@@ -59,5 +60,11 @@ router.patch(
   authenticate,
   requireAdminOrInvestigator,
   updatePriority,
+);
+router.patch(
+  "/:id/suspect-apprehended",
+  authenticate,
+  requireAdmin,
+  updateSuspectApprehended,
 );
 module.exports = router;

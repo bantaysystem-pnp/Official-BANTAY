@@ -53,6 +53,7 @@ app.use("/crime-map",        require("./features/crime-map/routes/crimeMapRoutes
 app.use("/crime-dashboard",        require("./features/dashboard/routes/crimeDashboardRoutes"));
 app.use("/ai-assessment", require("./features/ai-assessment/routes/assessment.routes"));
 app.use("/audit-log", require("./features/audit/routes/auditRoutes"));
+app.use("/suspect-apprehended-methods", require("./features/cases/routes/suspectApprehendedRoutes"));
 
 
 // ── 5. Static uploads ─────────────────────────────────────────────────────────

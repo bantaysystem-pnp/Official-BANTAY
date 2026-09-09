@@ -15,7 +15,7 @@ const getUser = () => ({
 
 function CaseManagement() {
   const [cases, setCases] = useState([]);
-  const [stats, setStats] = useState({
+    const [stats, setStats] = useState({
     total_cases: 0,
     active_cases: 0,
     solved_cases: 0,
@@ -23,6 +23,7 @@ function CaseManagement() {
     referred_cases: 0,
     unassigned_cases: 0,
     high_priority_cases: 0,
+    suspect_apprehended_breakdown: [],
   });
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("all");
@@ -56,16 +57,30 @@ function CaseManagement() {
 
   // Modals
   const [showDetailModal, setShowDetailModal] = useState(false);
-  const [showStatusModal, setShowStatusModal] = useState(false);
-  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
   const [editingNote, setEditingNote] = useState(null);
   const [showDeletedNotes, setShowDeletedNotes] = useState(false);
 
   // Data
   const [investigators, setInvestigators] = useState([]);
+    // Suspect Apprehended — dropdown source + "+ Others" inline add (Update Case modal)
+  const [suspectMethods, setSuspectMethods] = useState([]);
+  const [selectedSuspectApprehended, setSelectedSuspectApprehended] = useState("");
+  const [showAddSuspectMethodInput, setShowAddSuspectMethodInput] = useState(false);
+  const [newSuspectMethodInput, setNewSuspectMethodInput] = useState("");
+
+  // Manage Apprehension Methods modal (separate CRUD surface, Admin only)
+  const [showManageMethodsModal, setShowManageMethodsModal] = useState(false);
+  const [methodsLoading, setMethodsLoading] = useState(false);
+  const [allSuspectMethods, setAllSuspectMethods] = useState([]); // includes inactive
+  const [newManageMethodInput, setNewManageMethodInput] = useState("");
+  const [editingMethodId, setEditingMethodId] = useState(null);
+  const [editingMethodName, setEditingMethodName] = useState("");
+    const [newManageMethodError, setNewManageMethodError] = useState("");
+  const [newSuspectMethodError, setNewSuspectMethodError] = useState("");
   const [selectedCase, setSelectedCase] = useState(null);
-  const [selectedInvestigatorId, setSelectedInvestigatorId] = useState("");
+  const [assignedIoName, setAssignedIoName] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [noteForm, setNoteForm] = useState({
     note: "",
@@ -83,7 +98,6 @@ function CaseManagement() {
   const showError = (message) => {
     setErrorModal({ show: true, message });
   };
-  const [showPriorityModal, setShowPriorityModal] = useState(false);
   const [showActionConfirm, setShowActionConfirm] = useState({
     show: false,
     type: "",
@@ -91,29 +105,33 @@ function CaseManagement() {
     onConfirm: null,
   });
   const [selectedPriority, setSelectedPriority] = useState("");
+  // Snapshot of the case's values when the modal opened — used to figure out
+  // which of the 3 PATCH endpoints actually need to fire on save.
+  const [originalCaseValues, setOriginalCaseValues] = useState({
+    assigned_io_name: "",
+    status: "",
+    priority: "",
+    suspect_apprehended: "",
+  });
   const user = getUser();
   const isAdmin =
     user.role === "Administrator" || user.role === "Technical Administrator";
-  const isInvestigator = user.role === "Investigator";
+
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
-    if (isInvestigator) {
-      setActiveTab("my");
-      fetchCases("my");
-    } else {
-      const defaultF = {
-        status: "",
-        priority: "",
-        search: "",
-        sort_updated: "",
-        date_from: getDefaultDateFrom(),
-        date_to: getDefaultDateTo(),
-      };
-      fetchCases("all", defaultF);
-      fetchStats(defaultF);
-    }
+    const defaultF = {
+      status: "",
+      priority: "",
+      search: "",
+      sort_updated: "",
+      date_from: getDefaultDateFrom(),
+      date_to: getDefaultDateTo(),
+    };
+    fetchCases("all", defaultF);
+    fetchStats(defaultF);
+    fetchSuspectMethods();
   }, []);
 
   const showToast = (message, type = "success") => {
@@ -141,21 +159,11 @@ function CaseManagement() {
       const data = await res.json();
       if (data.success) {
         let result = data.data;
-        if (tab === "my")
-          result = result.filter(
-            (c) =>
-              c.assigned_io_id === user.user_id ||
-              c.assigned_io_name?.includes(user.first_name),
-          );
+
         if (tab === "high")
           result = result.filter((c) => c.priority === "High");
         if (tab === "unassigned")
-          result = result.filter(
-            (c) =>
-              !c.assigned_io_id ||
-              c.assigned_io_id === null ||
-              c.assigned_io_id === "",
-          );
+          result = result.filter((c) => !c.assigned_io_name?.trim());
         if (f.search && f.search.trim().length > 0) {
           const searchTerm = f.search.trim().toUpperCase();
           result = result.filter((c) => {
@@ -226,6 +234,22 @@ function CaseManagement() {
     }
   };
 
+    const fetchSuspectMethods = async (includeInactive = false) => {
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/suspect-apprehended-methods${includeInactive ? "?includeInactive=true" : ""}`,
+        { headers: { Authorization: `Bearer ${getToken()}` } },
+      );
+      const data = await res.json();
+      if (data.success) {
+        if (includeInactive) setAllSuspectMethods(data.data);
+        else setSuspectMethods(data.data);
+      }
+    } catch (err) {
+      console.error("Fetch suspect apprehended methods error:", err);
+    }
+  };
+
   const fetchCaseDetail = async (caseId) => {
     try {
       const res = await fetch(`${API_URL}/${caseId}`, {
@@ -238,102 +262,177 @@ function CaseManagement() {
     }
   };
 
-  // Handlers
-
-  const handleAssign = async () => {
-    try {
-      setModalLoading(true);
-      const res = await fetch(`${API_URL}/${selectedCase.id}/assign`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({ assigned_io_id: selectedInvestigatorId }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast(
-          selectedInvestigatorId
-            ? "Investigator assigned successfully!"
-            : "Investigator unassigned successfully!",
-        );
-        setShowAssignModal(false);
-        fetchCases();
-        fetchStats();
-      } else {
-        showError(data.message);
-      }
-    } catch (err) {
-      showError("Failed to assign investigator. Please try again.");
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  const handleUpdatePriority = async () => {
-    if (!selectedPriority)
-      return showError("Please select a priority to continue.");
-    try {
-      setModalLoading(true);
-      const res = await fetch(`${API_URL}/${selectedCase.id}/priority`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({ priority: selectedPriority }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast("Priority updated successfully!");
-        setShowPriorityModal(false);
-        fetchCases();
-        fetchStats();
-      } else {
-        showError(data.message);
-      }
-    } catch (err) {
-      showError("Failed to update priority. Please try again.");
-    } finally {
-      setModalLoading(false);
-    }
-  };
-
-  const openPriorityModal = (c) => {
-    setSelectedCase(c);
-    setSelectedPriority(c.priority);
-    setShowPriorityModal(true);
-  };
-
-  const handleUpdateStatus = async () => {
+    // Only hits the endpoints for fields that actually changed. Status/priority
+  // /assign stay as 3 separate PATCH calls (separate audit events, separate
+  // authorization rules per role) — just fired in parallel from one modal.
+  const handleUpdateCase = async () => {
     if (!selectedStatus)
       return showError("Please select a status to continue.");
+
+    // Resolve a typed "+ Others" method before diffing against the snapshot.
+    let effectiveSuspectApprehended = selectedSuspectApprehended;
+    if (showAddSuspectMethodInput && newSuspectMethodInput.trim()) {
+      const resolved = await handleAddNewSuspectMethod(true); // silent — no double toast
+      if (!resolved) return; // error already shown; keep input open to retry
+      effectiveSuspectApprehended = resolved;
+    }
+
     try {
       setModalLoading(true);
-      const res = await fetch(`${API_URL}/${selectedCase.id}/status`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({ status: selectedStatus }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        showToast("Status updated successfully!");
-        setShowStatusModal(false);
+      const requests = [];
+
+      if (assignedIoName.trim() !== originalCaseValues.assigned_io_name) {
+        requests.push(
+          fetch(`${API_URL}/${selectedCase.id}/assign`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${getToken()}`,
+            },
+            body: JSON.stringify({ assigned_io_name: assignedIoName.trim() }),
+          }),
+        );
+      }
+      if (selectedStatus !== originalCaseValues.status) {
+        requests.push(
+          fetch(`${API_URL}/${selectedCase.id}/status`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${getToken()}`,
+            },
+            body: JSON.stringify({ status: selectedStatus }),
+          }),
+        );
+      }
+      if (selectedPriority !== originalCaseValues.priority) {
+        requests.push(
+          fetch(`${API_URL}/${selectedCase.id}/priority`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${getToken()}`,
+            },
+            body: JSON.stringify({ priority: selectedPriority || null }),
+          }),
+        );
+      }
+      if (
+        effectiveSuspectApprehended !== originalCaseValues.suspect_apprehended
+      ) {
+        requests.push(
+          fetch(`${API_URL}/${selectedCase.id}/suspect-apprehended`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${getToken()}`,
+            },
+            body: JSON.stringify({
+              suspect_apprehended: effectiveSuspectApprehended || null,
+            }),
+          }),
+        );
+      }
+
+      if (requests.length === 0) {
+        setShowUpdateModal(false);
+        return;
+      }
+
+      const responses = await Promise.all(requests);
+      const results = await Promise.all(responses.map((r) => r.json()));
+      const failed = results.find((r) => !r.success);
+
+      if (failed) {
+        showError(failed.message || "Some updates failed. Please try again.");
+      } else {
+        showToast("Case updated successfully!");
+        setShowUpdateModal(false);
         fetchCases();
         fetchStats();
-      } else {
-        showError(data.message);
       }
     } catch (err) {
-      showError("Failed to update status. Please try again.");
+      showError("Failed to update case. Please try again.");
     } finally {
       setModalLoading(false);
     }
   };
+
+    // Resolves a typed "+ Others" method into the master list (create-or-reactivate
+  // server-side) and returns its name for use on the case. Same pattern as
+  // EBlotter's mobile unit / type of operation inline-add flow.
+  const handleAddNewSuspectMethod = async (silent = false) => {
+    const trimmed = newSuspectMethodInput.trim();
+    if (!trimmed) return null;
+
+    try {
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/suspect-apprehended-methods`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ method_name: trimmed }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        const newEntry = { id: data.data.id, method_name: data.data.method_name };
+        setSuspectMethods((prev) => {
+          const alreadyThere = prev.some((m) => m.id === newEntry.id);
+          return alreadyThere
+            ? prev
+            : [...prev, newEntry].sort((a, b) =>
+                a.method_name.localeCompare(b.method_name),
+              );
+        });
+        setShowAddSuspectMethodInput(false);
+        setNewSuspectMethodInput("");
+        if (!silent) {
+          showToast(
+            data.data.reactivated
+              ? `"${newEntry.method_name}" was removed before — restored it for you.`
+              : data.data.created
+                ? "New method added."
+                : "That method already existed — selected it for you.",
+          );
+        }
+        return newEntry.method_name;
+      } else {
+        showError(data.message || "Failed to add method.");
+        return null;
+      }
+    } catch {
+      showError("Failed to add method. Check your connection.");
+      return null;
+    }
+  };
+
+  const openUpdateModal = (c) => {
+    setSelectedCase(c);
+    const initial = {
+      assigned_io_name: c.assigned_io_name || "",
+      status: c.status,
+      priority: c.priority || "",
+      suspect_apprehended: c.suspect_apprehended || "",
+    };
+    setAssignedIoName(initial.assigned_io_name);
+    setSelectedStatus(initial.status);
+    setSelectedPriority(initial.priority);
+    setSelectedSuspectApprehended(initial.suspect_apprehended);
+    setShowAddSuspectMethodInput(false);
+    setNewSuspectMethodInput("");
+    setOriginalCaseValues(initial);
+    setShowUpdateModal(true);
+  };
+  
+
+
+  
+
+
 
   const handleAddNote = async () => {
     if (!noteForm.note.trim() || noteForm.note.trim().length < 3)
@@ -442,6 +541,129 @@ function CaseManagement() {
     }
   };
 
+    const openManageMethodsModal = () => {
+    setShowManageMethodsModal(true);
+    setNewManageMethodInput("");
+    setEditingMethodId(null);
+    fetchSuspectMethods(true);
+  };
+
+  const handleManageAddMethod = async () => {
+    const trimmed = newManageMethodInput.trim();
+    if (!trimmed || trimmed.length < 2)
+      return showError("Method name must be at least 2 characters.");
+    try {
+      setMethodsLoading(true);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/suspect-apprehended-methods`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ method_name: trimmed }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        if (data.data.reactivated) {
+          showToast("Method restored.");
+        } else if (data.data.created) {
+          showToast("Method added.");
+        } else {
+          showToast("That method already exists.", "error");
+        }
+        setNewManageMethodInput("");
+        fetchSuspectMethods(true);
+        fetchSuspectMethods(); // refresh the Update Case dropdown source too
+      } else {
+        showError(data.message || "Failed to add method.");
+      }
+    } catch {
+      showError("Failed to add method.");
+    } finally {
+      setMethodsLoading(false);
+    }
+  };
+
+  const handleManageRenameMethod = async (id) => {
+    const trimmed = editingMethodName.trim();
+    if (!trimmed || trimmed.length < 2)
+      return showError("Method name must be at least 2 characters.");
+    try {
+      setMethodsLoading(true);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/suspect-apprehended-methods/${id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+          body: JSON.stringify({ method_name: trimmed }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        showToast("Method renamed.");
+        setEditingMethodId(null);
+        fetchSuspectMethods(true);
+        fetchSuspectMethods();
+      } else {
+        showError(data.message || "Failed to rename method.");
+      }
+    } catch {
+      showError("Failed to rename method.");
+    } finally {
+      setMethodsLoading(false);
+    }
+  };
+
+  const handleManageDeactivateMethod = async (id) => {
+    try {
+      setMethodsLoading(true);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/suspect-apprehended-methods/${id}/deactivate`,
+        { method: "PATCH", headers: { Authorization: `Bearer ${getToken()}` } },
+      );
+      const data = await res.json();
+      if (data.success) {
+        showToast("Method deactivated.");
+        fetchSuspectMethods(true);
+        fetchSuspectMethods();
+      } else {
+        showError(data.message || "Failed to deactivate method.");
+      }
+    } catch {
+      showError("Failed to deactivate method.");
+    } finally {
+      setMethodsLoading(false);
+    }
+  };
+
+  const handleManageRestoreMethod = async (id) => {
+    try {
+      setMethodsLoading(true);
+      const res = await fetch(
+        `${import.meta.env.VITE_API_URL}/suspect-apprehended-methods/${id}/restore`,
+        { method: "PATCH", headers: { Authorization: `Bearer ${getToken()}` } },
+      );
+      const data = await res.json();
+      if (data.success) {
+        showToast("Method restored.");
+        fetchSuspectMethods(true);
+        fetchSuspectMethods();
+      } else {
+        showError(data.message || "Failed to restore method.");
+      }
+    } catch {
+      showError("Failed to restore method.");
+    } finally {
+      setMethodsLoading(false);
+    }
+  };
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
     fetchCases(tab);
@@ -483,18 +705,8 @@ function CaseManagement() {
     setModalLoading(false);
   };
 
-  const openStatusModal = (c) => {
-    setSelectedCase(c);
-    setSelectedStatus(c.status);
-    setShowStatusModal(true);
-  };
 
-  const openAssignModal = (c) => {
-    setSelectedCase(c);
-    setSelectedInvestigatorId(c.assigned_io_id || "");
-    setShowAssignModal(true);
-    fetchInvestigators();
-  };
+
 
   const openNoteModal = (c) => {
     setSelectedCase(c);
@@ -528,7 +740,7 @@ function CaseManagement() {
       High: "cm-priority-high",
       Medium: "cm-priority-medium",
       Low: "cm-priority-low",
-    })[p] || "cm-priority-low";
+    })[p] || "cm-priority-none";
 
   const getStatusClass = (s) =>
     ({
@@ -560,9 +772,17 @@ function CaseManagement() {
           <h1>Case Management</h1>
           <p>Track and manage investigation cases</p>
         </div>
+        {isAdmin && (
+          <button
+            className="cm-btn cm-btn-secondary"
+            onClick={openManageMethodsModal}
+          >
+            Apprehension Lists
+          </button>
+        )}
       </div>
 
-      {/* STATS CARDS — Admin only */}
+            {/* STATS CARDS — Admin only */}
       {isAdmin && (
         <div className="cm-status-cards-grid">
           <div
@@ -571,33 +791,6 @@ function CaseManagement() {
           >
             <div className="cm-status-card-label">Total Cases</div>
             <div className="cm-status-card-value">{stats.total_cases}</div>
-            <span className="cm-status-card-badge cm-badge-blue">Total</span>
-          </div>
-          <div
-            className="cm-status-card"
-            style={{ borderLeft: "4px solid #f59e0b" }}
-          >
-            <div className="cm-status-card-label">Under Investigation</div>
-            <div className="cm-status-card-value">{stats.active_cases}</div>
-            <span className="cm-status-card-badge cm-badge-yellow">Active</span>
-          </div>
-          <div
-            className="cm-status-card"
-            style={{ borderLeft: "4px solid #16a34a" }}
-          >
-            <div className="cm-status-card-label">Solved</div>
-            <div className="cm-status-card-value">{stats.solved_cases}</div>
-            <span className="cm-status-card-badge cm-badge-green">Solved</span>
-          </div>
-          <div
-            className="cm-status-card"
-            style={{ borderLeft: "4px solid #4f46e5" }}
-          >
-            <div className="cm-status-card-label">Cleared</div>
-            <div className="cm-status-card-value">{stats.cleared_cases}</div>
-            <span className="cm-status-card-badge cm-badge-purple">
-              Cleared
-            </span>
           </div>
           <div
             className="cm-status-card"
@@ -605,10 +798,19 @@ function CaseManagement() {
           >
             <div className="cm-status-card-label">Unassigned</div>
             <div className="cm-status-card-value">{stats.unassigned_cases}</div>
-            <span className="cm-status-card-badge cm-badge-red">
-              Unassigned
-            </span>
           </div>
+          {stats.suspect_apprehended_breakdown.map((item, i) => (
+            <div
+              key={item.label}
+              className="cm-status-card"
+              style={{
+                borderLeft: `4px solid ${["#f59e0b", "#16a34a", "#6b7280"][i] || "#6b7280"}`,
+              }}
+            >
+              <div className="cm-status-card-label">{item.label}</div>
+              <div className="cm-status-card-value">{item.count}</div>
+            </div>
+          ))}
         </div>
       )}
 
@@ -739,7 +941,7 @@ function CaseManagement() {
 
       {/* TABS */}
       <div className="cm-tab-navigation">
-        {(isInvestigator ? ["my", "high"] : ["all", "high", "unassigned"]).map(
+        {["all", "high", "unassigned"].map(
           (tab) => (
             <button
               key={tab}
@@ -765,7 +967,7 @@ function CaseManagement() {
         ) : (
           paginatedCases.map((c) => (
             <div
-              className={`cm-case-card priority-${(c.priority || "low").toLowerCase()}`}
+              className={`cm-case-card priority-${(c.priority || "none").toLowerCase()}`}
               key={c.id}
             >
               <div className="cm-case-header">
@@ -789,11 +991,13 @@ function CaseManagement() {
                     {c.crime_type} — {c.barangay}
                   </div>
                 </div>
-                <span
-                  className={`cm-priority-badge ${getPriorityClass(c.priority)}`}
-                >
-                  {c.priority} Priority
-                </span>
+                {c.priority && (
+                  <span
+                    className={`cm-priority-badge ${getPriorityClass(c.priority)}`}
+                  >
+                    {c.priority} Priority
+                  </span>
+                )}
               </div>
               <div className="cm-case-meta">
                 <div className="cm-case-meta-item">
@@ -803,6 +1007,18 @@ function CaseManagement() {
                 <div className="cm-case-meta-item">
                   <span className="cm-case-meta-label">Location:</span>
                   <span>{c.barangay}</span>
+                </div>
+                {/* Suspect Apprehended — same field/format as the detail modal */}
+                <div className="cm-case-meta-item">
+                  <span className="cm-case-meta-label">Suspect Apprehended:</span>
+                  <span
+                    style={{
+                      color: c.suspect_apprehended?.trim() ? "inherit" : "#9ca3af",
+                      fontStyle: c.suspect_apprehended?.trim() ? "normal" : "italic",
+                    }}
+                  >
+                    {c.suspect_apprehended?.trim() || "Not Apprehended"}
+                  </span>
                 </div>
                 <div className="cm-case-meta-item">
                   <span className="cm-case-meta-label">Last Updated:</span>
@@ -823,28 +1039,12 @@ function CaseManagement() {
                   {isAdmin && (
                     <button
                       className="cm-action-btn cm-action-btn-edit"
-                      onClick={() => openAssignModal(c)}
+                      onClick={() => openUpdateModal(c)}
                     >
-                      Assign IO
+                      Update Case
                     </button>
                   )}
-                  {(isAdmin || isInvestigator) && (
-                    <>
-                      <button
-                        className="cm-action-btn cm-action-btn-edit"
-                        onClick={() => openPriorityModal(c)}
-                      >
-                        Set Priority
-                      </button>
-                      <button
-                        className="cm-action-btn cm-action-btn-edit"
-                        onClick={() => openStatusModal(c)}
-                      >
-                        Update Status
-                      </button>
-                    </>
-                  )}
-                  {(isAdmin || isInvestigator) && (
+                  {isAdmin && (
                     <button
                       className="cm-action-btn cm-action-btn-success"
                       onClick={() => openNoteModal(c)}
@@ -888,251 +1088,15 @@ function CaseManagement() {
         )}
       </div>
 
-      {/* ── ASSIGN INVESTIGATOR MODAL ── */}
-      {showAssignModal && (
+      {/* ── UPDATE CASE MODAL (Investigator + Status + Priority) ── */}
+      {showUpdateModal && (
         <div className="cm-modal">
-          <div
-            className="cm-modal-content"
-            style={{ maxWidth: "700px", width: "95vw" }}
-          >
+          <div className="cm-modal-content" style={{ maxWidth: "520px" }}>
             <div className="cm-modal-header">
-              <h2>Assign Investigator</h2>
+              <h2>Update Case</h2>
               <span
                 className="cm-modal-close"
-                onClick={() => setShowAssignModal(false)}
-              >
-                &times;
-              </span>
-            </div>
-            <div className="cm-modal-body" style={{ padding: "20px 24px" }}>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  marginBottom: "16px",
-                  padding: "10px 14px",
-                  background: "rgba(30,58,95,0.05)",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30,58,95,0.1)",
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--navy-primary)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="7" width="20" height="14" rx="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
-                <span style={{ fontSize: "13px", color: "#374151" }}>
-                  Case:{" "}
-                  {selectedCase?.report_number}
-                </span>
-              </div>
-
-              {/* Unassign Card */}
-              <div
-                className={`cm-io-card cm-io-unassign ${selectedInvestigatorId === "" ? "cm-io-selected" : ""}`}
-                onClick={() => setSelectedInvestigatorId("")}
-              >
-                <div className="cm-io-avatar cm-io-avatar-danger">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="8" y1="12" x2="16" y2="12" />
-                  </svg>
-                </div>
-                <div className="cm-io-info">
-                  <div className="cm-io-name">Remove / Unassign IO</div>
-                  <div className="cm-io-sub">
-                    Clear current assignment from this case
-                  </div>
-                </div>
-                {selectedInvestigatorId === "" && (
-                  <div className="cm-io-check">✓</div>
-                )}
-              </div>
-
-              <div className="cm-io-section-label">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                  <circle cx="9" cy="7" r="4" />
-                </svg>
-                Available Investigators ({investigators.length})
-              </div>
-
-              <div className="cm-io-list">
-                {investigators.length === 0 ? (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "24px",
-                      color: "#9ca3af",
-                      fontSize: "13px",
-                    }}
-                  >
-                    No investigators
-                  </div>
-                ) : (
-                  investigators.map((inv) => {
-                    const initials =
-                      `${inv.first_name?.[0] || ""}${inv.last_name?.[0] || ""}`.toUpperCase();
-                    const isSelected =
-                      selectedInvestigatorId === String(inv.user_id);
-                    const isCurrent =
-                      String(selectedCase?.assigned_io_id) ===
-                      String(inv.user_id);
-                    const colors = [
-                      "#1e3a5f",
-                      "#c1272d",
-                      "#0369a1",
-                      "#059669",
-                      "#7c3aed",
-                      "#d97706",
-                    ];
-                    const color =
-                      colors[
-                        (inv.first_name?.charCodeAt(0) || 0) % colors.length
-                      ];
-                    return (
-                      <div
-                        key={inv.user_id}
-                        className={`cm-io-card ${isSelected ? "cm-io-selected" : ""}`}
-                        onClick={() =>
-                          setSelectedInvestigatorId(String(inv.user_id))
-                        }
-                      >
-                        <div
-                          className="cm-io-avatar"
-                          style={{
-                            background: color,
-                            overflow: "hidden",
-                            padding: 0,
-                          }}
-                        >
-                          {inv.profile_picture ? (
-                            <img
-                              src={inv.profile_picture}
-                              alt={initials}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                              }}
-                            />
-                          ) : (
-                            initials
-                          )}
-                        </div>
-                        <div className="cm-io-info">
-                          <div className="cm-io-name">
-                            {inv.first_name} {inv.last_name}
-                            {isCurrent && (
-                              <span
-                                style={{
-                                  marginLeft: "8px",
-                                  fontSize: "10px",
-                                  fontWeight: 700,
-                                  padding: "2px 8px",
-                                  borderRadius: "20px",
-                                  background: "rgba(217,119,6,0.1)",
-                                  color: "#d97706",
-                                }}
-                              >
-                                CURRENT
-                              </span>
-                            )}
-                          </div>
-                          <div className="cm-io-sub">
-                            <span
-                              style={{
-                                display: "inline-flex",
-                                alignItems: "center",
-                                gap: "4px",
-                              }}
-                            >
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                width="10"
-                                height="10"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <circle cx="12" cy="12" r="10" />
-                              </svg>
-                              Investigator · Active
-                            </span>
-                          </div>
-                        </div>
-                        {isSelected && <div className="cm-io-check">✓</div>}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-            <div className="cm-modal-footer">
-              <button
-                className="cm-btn cm-btn-secondary"
-                onClick={() => setShowAssignModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="cm-btn cm-btn-primary"
-                onClick={handleAssign}
-                disabled={modalLoading}
-              >
-                {modalLoading
-                  ? "Saving..."
-                  : selectedInvestigatorId
-                    ? "Assign Investigator"
-                    : "Unassign IO"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── UPDATE STATUS MODAL ── */}
-      {showStatusModal && (
-        <div className="cm-modal">
-          <div className="cm-modal-content">
-            <div className="cm-modal-header">
-              <h2>Update Case Status</h2>
-              <span
-                className="cm-modal-close"
-                onClick={() => setShowStatusModal(false)}
+                onClick={() => setShowUpdateModal(false)}
               >
                 &times;
               </span>
@@ -1165,135 +1129,153 @@ function CaseManagement() {
                   <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                 </svg>
                 <span style={{ fontSize: "13px", color: "#374151" }}>
-                  Case:{" "}
-                  {selectedCase?.report_number}
+                  Case: {selectedCase?.report_number}
                 </span>
               </div>
-              <label
-                className="cm-modal-label"
-                style={{ marginBottom: "10px", display: "block" }}
-              >
-                Select New Status *
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                {[
-                  {
-                    value: "Under Investigation",
-                    color: "#f59e0b",
-                    bg: "rgba(245,158,11,0.08)",
-                    icon: "M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z",
-                    desc: "Case is actively being worked on",
-                  },
-                  {
-                    value: "Solved",
-                    color: "#16a34a",
-                    bg: "rgba(34,197,94,0.08)",
-                    icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z",
-                    desc: "Case has been resolved with suspect identified",
-                  },
-                  {
-                    value: "Cleared",
-                    color: "#4f46e5",
-                    bg: "rgba(99,102,241,0.08)",
-                    icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
-                    desc: "Case cleared — no further action needed",
-                  },
-                ].map((s) => (
-                  <div
-                    key={s.value}
-                    onClick={() => setSelectedStatus(s.value)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "14px",
-                      padding: "14px 16px",
-                      borderRadius: "10px",
-                      border: `2px solid ${selectedStatus === s.value ? s.color : "#e5e7eb"}`,
-                      background: selectedStatus === s.value ? s.bg : "white",
-                      cursor: "pointer",
-                      transition: "all 0.18s ease",
-                    }}
-                  >
-                    <div
+
+              {isAdmin && (
+                <div style={{ marginBottom: "16px" }}>
+                  <label className="cm-modal-label">
+                    Assigned Investigator (optional)
+                  </label>
+                  <input
+                    type="text"
+                    className="cm-modal-input"
+                    placeholder="e.g. Juan Dela Cruz"
+                    value={assignedIoName}
+                    onChange={(e) => setAssignedIoName(e.target.value)}
+                    maxLength={150}
+                  />
+                </div>
+              )}
+
+              <div style={{ marginBottom: "16px" }}>
+                <label className="cm-modal-label">Status *</label>
+                <select
+                  className="cm-modal-input"
+                  value={selectedStatus}
+                  onChange={(e) => setSelectedStatus(e.target.value)}
+                >
+                  <option value="Under Investigation">
+                    Under Investigation
+                  </option>
+                  <option value="Solved">Solved</option>
+                  <option value="Cleared">Cleared</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: "16px" }}>
+                <label className="cm-modal-label">Priority</label>
+                <select
+                  className="cm-modal-input"
+                  value={selectedPriority}
+                  onChange={(e) => setSelectedPriority(e.target.value)}
+                >
+                  <option value="">No Priority</option>
+                  <option value="High">High</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Low">Low</option>
+                </select>
+              </div>
+
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <label className="cm-modal-label">Suspect Apprehended</label>
+                  {showAddSuspectMethodInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAddSuspectMethodInput(false);
+                        setNewSuspectMethodInput("");
+                      }}
                       style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        background: s.bg,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
+                        background: "none",
+                        border: "none",
+                        color: "var(--navy-primary)",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        padding: 0,
+                        textDecoration: "underline",
                       }}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke={s.color}
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d={s.icon} />
-                      </svg>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div
+                      ← Back to list
+                    </button>
+                  )}
+                </div>
+                {!showAddSuspectMethodInput ? (
+                  <select
+                    className="cm-modal-input"
+                    value={selectedSuspectApprehended}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "__add_new__") {
+                        setShowAddSuspectMethodInput(true);
+                        setNewSuspectMethodInput("");
+                        return;
+                      }
+                      setSelectedSuspectApprehended(val);
+                    }}
+                  >
+                    <option value="">Not Apprehended</option>
+                    {suspectMethods.map((m) => (
+                      <option key={m.id} value={m.method_name}>
+                        {m.method_name}
+                      </option>
+                    ))}
+                    {/* Case's saved value may point to a method since deactivated/renamed —
+                        show it anyway so editing the case doesn't silently blank it out. */}
+                    {selectedSuspectApprehended &&
+                      !suspectMethods.some((m) => m.method_name === selectedSuspectApprehended) && (
+                        <option value={selectedSuspectApprehended}>
+                          {selectedSuspectApprehended} (inactive)
+                        </option>
+                      )}
+                    <option value="__add_new__">+ Others (please specify)</option>
+                  </select>
+                ) : (
+                  <>
+                    <input
+                      type="text"
+                      className="cm-modal-input"
+                      placeholder="Type new method, then Save Changes"
+                      value={newSuspectMethodInput}
+                      maxLength={150}
+                      autoFocus
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewSuspectMethodInput(val);
+                        const trimmed = val.trim().toLowerCase();
+                        const isDuplicate =
+                          trimmed.length > 0 &&
+                          suspectMethods.some(
+                            (m) => m.method_name.trim().toLowerCase() === trimmed,
+                          );
+                        setNewSuspectMethodError(
+                          isDuplicate ? `"${val.trim()}" already exists` : "",
+                        );
+                      }}
+                    />
+                    {newSuspectMethodError && (
+                      <span
                         style={{
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          color:
-                            selectedStatus === s.value ? s.color : "#111827",
-                        }}
-                      >
-                        {s.value}
-                      </div>
-                      <div
-                        style={{
+                          display: "block",
+                          color: "#dc2626",
                           fontSize: "12px",
-                          color: "#6b7280",
-                          marginTop: "2px",
+                          marginTop: "4px",
                         }}
                       >
-                        {s.desc}
-                      </div>
-                    </div>
-                    {selectedStatus === s.value && (
-                      <div
-                        style={{
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "50%",
-                          background: s.color,
-                          color: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        ✓
-                      </div>
+                        {newSuspectMethodError}
+                      </span>
                     )}
-                  </div>
-                ))}
+                  </>
+                )}
               </div>
             </div>
             <div className="cm-modal-footer">
               <button
                 className="cm-btn cm-btn-secondary"
-                onClick={() => setShowStatusModal(false)}
+                onClick={() => setShowUpdateModal(false)}
               >
                 Cancel
               </button>
@@ -1302,14 +1284,189 @@ function CaseManagement() {
                 onClick={() =>
                   setShowActionConfirm({
                     show: true,
-                    type: "status",
-                    label: `Set status to "${selectedStatus}"?`,
-                    onConfirm: handleUpdateStatus,
+                    type: "update",
+                    label: "Save these changes to the case?",
+                    onConfirm: handleUpdateCase,
                   })
                 }
                 disabled={modalLoading}
               >
-                {modalLoading ? "Updating..." : "Update Status"}
+                {modalLoading ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+            {/* ── MANAGE APPREHENSION METHODS MODAL ── */}
+      {showManageMethodsModal && (
+        <div className="cm-modal" style={{ zIndex: 1050 }}>
+          <div className="cm-modal-content" style={{ maxWidth: "560px" }}>
+            <div className="cm-modal-header">
+              <h2>Manage Apprehension Methods</h2>
+              <span
+                className="cm-modal-close"
+                onClick={() => setShowManageMethodsModal(false)}
+              >
+                &times;
+              </span>
+            </div>
+            <div className="cm-modal-body">
+              <div style={{ display: "flex", gap: "8px", marginBottom: "18px" }}>
+                <div style={{ flex: 1 }}>
+                  <input
+                    type="text"
+                    className="cm-modal-input"
+                    placeholder="e.g. Turn over by Barangay"
+                    value={newManageMethodInput}
+                    maxLength={150}
+                    style={{ width: "100%", boxSizing: "border-box" }}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setNewManageMethodInput(val);
+                      const trimmed = val.trim().toLowerCase();
+                      const isDuplicate =
+                        trimmed.length > 0 &&
+                        allSuspectMethods.some(
+                          (m) => m.method_name.trim().toLowerCase() === trimmed,
+                        );
+                      setNewManageMethodError(
+                        isDuplicate ? `"${val.trim()}" already exists` : "",
+                      );
+                    }}
+                    onKeyDown={(e) => e.key === "Enter" && handleManageAddMethod()}
+                  />
+                  {newManageMethodError && (
+                    <span
+                      style={{
+                        display: "block",
+                        color: "#dc2626",
+                        fontSize: "12px",
+                        marginTop: "4px",
+                      }}
+                    >
+                      {newManageMethodError}
+                    </span>
+                  )}
+                </div>
+                <button
+                  className="cm-btn cm-btn-primary"
+                  style={{ whiteSpace: "nowrap", height: "40px" }}
+                  onClick={handleManageAddMethod}
+                  disabled={methodsLoading}
+                >
+                  + Add
+                </button>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                  maxHeight: "320px",
+                  overflowY: "auto",
+                  paddingRight: "4px",
+                }}
+              >
+                {allSuspectMethods.length === 0 ? (
+                  <p style={{ color: "#9ca3af", fontSize: "14px" }}>No methods yet.</p>
+                ) : (
+                  allSuspectMethods.map((m) => (
+                    <div
+                      key={m.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: "10px",
+                        padding: "10px 14px",
+                        border: "1px solid #e5e7eb",
+                        borderRadius: "8px",
+                        opacity: m.is_active ? 1 : 0.55,
+                      }}
+                    >
+                      {editingMethodId === m.id ? (
+                        <input
+                          type="text"
+                          className="cm-modal-input"
+                          value={editingMethodName}
+                          maxLength={150}
+                          autoFocus
+                          onChange={(e) => setEditingMethodName(e.target.value)}
+                          style={{ flex: 1 }}
+                        />
+                      ) : (
+                        <span style={{ fontSize: "14px", color: "#374151" }}>
+                          {m.method_name}
+                          {!m.is_active && (
+                            <span style={{ marginLeft: "8px", fontSize: "11px", color: "#dc2626", fontWeight: 600 }}>
+                              (inactive)
+                            </span>
+                          )}
+                        </span>
+                      )}
+                      <div style={{ display: "flex", gap: "6px", flexShrink: 0 }}>
+                        {editingMethodId === m.id ? (
+                          <>
+                            <button
+                              className="cm-btn cm-btn-primary"
+                              style={{ padding: "6px 12px", fontSize: "12px" }}
+                              onClick={() => handleManageRenameMethod(m.id)}
+                              disabled={methodsLoading}
+                            >
+                              Save
+                            </button>
+                            <button
+                              className="cm-btn cm-btn-secondary"
+                              style={{ padding: "6px 12px", fontSize: "12px" }}
+                              onClick={() => setEditingMethodId(null)}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="cm-btn cm-btn-secondary"
+                              style={{ padding: "6px 12px", fontSize: "12px" }}
+                              onClick={() => {
+                                setEditingMethodId(m.id);
+                                setEditingMethodName(m.method_name);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            {m.is_active ? (
+                              <button
+                                className="cm-btn"
+                                style={{ padding: "6px 12px", fontSize: "12px", background: "rgba(239,68,68,0.08)", color: "#dc2626" }}
+                                onClick={() => handleManageDeactivateMethod(m.id)}
+                                disabled={methodsLoading}
+                              >
+                                Deactivate
+                              </button>
+                            ) : (
+                              <button
+                                className="cm-btn"
+                                style={{ padding: "6px 12px", fontSize: "12px", background: "rgba(34,197,94,0.08)", color: "#16a34a" }}
+                                onClick={() => handleManageRestoreMethod(m.id)}
+                                disabled={methodsLoading}
+                              >
+                                Restore
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div className="cm-modal-footer">
+              <button className="cm-btn cm-btn-secondary" onClick={() => setShowManageMethodsModal(false)}>
+                Close
               </button>
             </div>
           </div>
@@ -1620,7 +1777,15 @@ function CaseManagement() {
                     borderRight: "1px solid #f3f4f6",
                   }}
                 >
-
+                  <span className="cm-detail-label">Suspect Apprehended</span>
+                  <span
+                    style={{
+                      color: selectedCase.suspect_apprehended?.trim() ? "#111827" : "#9ca3af",
+                      fontStyle: selectedCase.suspect_apprehended?.trim() ? "normal" : "italic",
+                    }}
+                  >
+                    {selectedCase.suspect_apprehended?.trim() || "Not Apprehended"}
+                  </span>
                 </div>
                 <div
                   className="cm-detail-item"
@@ -1737,7 +1902,7 @@ function CaseManagement() {
                         </button>
                       </div>
                     )}
-                    {(isAdmin || isInvestigator) && (
+                    {isAdmin && (
                       <button
                         className="cm-btn cm-btn-primary"
                         style={{ padding: "8px 16px", fontSize: "13px" }}
@@ -2029,195 +2194,7 @@ function CaseManagement() {
           </div>
         </div>
       )}
-      {showPriorityModal && (
-        <div className="cm-modal">
-          <div className="cm-modal-content">
-            <div className="cm-modal-header">
-              <h2>Update Priority</h2>
-              <span
-                className="cm-modal-close"
-                onClick={() => setShowPriorityModal(false)}
-              >
-                &times;
-              </span>
-            </div>
-            <div className="cm-modal-body">
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "10px",
-                  marginBottom: "20px",
-                  padding: "10px 14px",
-                  background: "rgba(30,58,95,0.05)",
-                  borderRadius: "8px",
-                  border: "1px solid rgba(30,58,95,0.1)",
-                }}
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="var(--navy-primary)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="2" y="7" width="20" height="14" rx="2" />
-                  <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
-                <span style={{ fontSize: "13px", color: "#374151" }}>
-                  Case:{" "}
-                  <strong
-                    style={{
-                      color: "var(--navy-primary)",
-                      fontFamily: "monospace",
-                    }}
-                  >
-                    {selectedCase?.report_number}
-                  </strong>
-                </span>
-              </div>
-              <label
-                className="cm-modal-label"
-                style={{ marginBottom: "10px", display: "block" }}
-              >
-                Set Priority Level *
-              </label>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                }}
-              >
-                {[
-                  {
-                    value: "High",
-                    color: "#dc2626",
-                    bg: "rgba(239,68,68,0.08)",
-                    desc: "Requires immediate attention and resources",
-                  },
-                  {
-                    value: "Medium",
-                    color: "#d97706",
-                    bg: "rgba(251,191,36,0.08)",
-                    desc: "Important but not immediately critical",
-                  },
-                  {
-                    value: "Low",
-                    color: "#16a34a",
-                    bg: "rgba(34,197,94,0.08)",
-                    desc: "Routine — can be handled in normal course",
-                  },
-                ].map((p) => (
-                  <div
-                    key={p.value}
-                    onClick={() => setSelectedPriority(p.value)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "14px",
-                      padding: "14px 16px",
-                      borderRadius: "10px",
-                      border: `2px solid ${selectedPriority === p.value ? p.color : "#e5e7eb"}`,
-                      background: selectedPriority === p.value ? p.bg : "white",
-                      cursor: "pointer",
-                      transition: "all 0.18s ease",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "40px",
-                        height: "40px",
-                        borderRadius: "50%",
-                        background: p.bg,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: "14px",
-                          height: "14px",
-                          borderRadius: "50%",
-                          background: p.color,
-                        }}
-                      />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div
-                        style={{
-                          fontWeight: 700,
-                          fontSize: "14px",
-                          color:
-                            selectedPriority === p.value ? p.color : "#111827",
-                        }}
-                      >
-                        {p.value} Priority
-                      </div>
-                      <div
-                        style={{
-                          fontSize: "12px",
-                          color: "#6b7280",
-                          marginTop: "2px",
-                        }}
-                      >
-                        {p.desc}
-                      </div>
-                    </div>
-                    {selectedPriority === p.value && (
-                      <div
-                        style={{
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "50%",
-                          background: p.color,
-                          color: "white",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}
-                      >
-                        ✓
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="cm-modal-footer">
-              <button
-                className="cm-btn cm-btn-secondary"
-                onClick={() => setShowPriorityModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="cm-btn cm-btn-primary"
-                onClick={() =>
-                  setShowActionConfirm({
-                    show: true,
-                    type: "priority",
-                    label: `Set priority to "${selectedPriority}"?`,
-                    onConfirm: handleUpdatePriority,
-                  })
-                }
-                disabled={modalLoading}
-              >
-                {modalLoading ? "Updating..." : "Update Priority"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* ── CONFIRM ACTION MODAL ── */}
       {showActionConfirm.show && (

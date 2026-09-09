@@ -489,7 +489,7 @@ function EBlotter() {
       }
 
       // Excel-only now — no preview step, straight to download.
-      const filename = `blotter_export_${dateFrom}_to_${dateTo}.xlsx`;
+      const filename = `report_export_${dateFrom}_to_${dateTo}.xlsx`;
       const blob = await response.blob();
       const blobUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");

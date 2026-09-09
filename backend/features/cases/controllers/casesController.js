@@ -3,7 +3,6 @@
 const pool = require("../../../config/database");
 const { logAudit, getClientIp } = require("../../../shared/utils/auditLogger");
 
-
 // Small helper — cases_v2 no longer carries its own display identifier
 // (no case_number column), so everywhere the old code used case_number for
 // notifications/messages, we look up crime_reports_v2.report_number instead.
@@ -18,90 +17,49 @@ const getReportNumberForCase = async (caseId) => {
   return result.rows[0]?.report_number || null;
 };
 
-// PATCH /cases/:id/assign — Admin only
+// PATCH /cases/:id/assign — Admin only. Free-text name, no FK to users.
 const assignInvestigator = async (req, res) => {
   try {
     const { id } = req.params;
-    const { assigned_io_id } = req.body;
+    const raw = req.body.assigned_io_name;
+    const nameValue = raw && raw.trim().length > 0 ? raw.trim() : null;
 
-    const caseCheck = await pool.query("SELECT id FROM cases_v2 WHERE id = $1", [
-      id,
-    ]);
+    const caseCheck = await pool.query(
+      "SELECT id FROM cases_v2 WHERE id = $1",
+      [id],
+    );
     if (caseCheck.rows.length === 0)
       return res
         .status(404)
         .json({ success: false, message: "Case not found" });
 
-    // Allow unassigning by passing null or empty string
-    if (!assigned_io_id || assigned_io_id === "") {
-      const result = await pool.query(
-        `UPDATE cases_v2 SET assigned_io_id = NULL, updated_at = NOW()
-         WHERE id = $1 RETURNING id, assigned_io_id, updated_at`,
-        [id],
-      );
-
-      await logAudit({
-        userId: req.user?.user_id,
-        username: req.user?.username,
-        eventName: "Investigator Unassigned",
-        description: `Unassigned investigator from case ID ${id}`,
-        action: "UPDATE",
-        status: "success",
-        source: "Web Portal",
-        ipAddress: getClientIp(req),
-      });
-      return res.status(200).json({
-        success: true,
-        message: "Investigator unassigned successfully",
-        data: { ...result.rows[0], assigned_io_name: null },
-      });
-    }
-
-    const user = await pool.query(
-      `SELECT u.user_id, u.first_name, u.last_name, u.status, r.role_name
-       FROM users u JOIN roles r ON u.role_id = r.role_id WHERE u.user_id = $1`,
-      [assigned_io_id],
-    );
-    if (user.rows.length === 0)
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    if (user.rows[0].role_name !== "Investigator")
-      return res.status(400).json({
-        success: false,
-        message: "Selected user is not an Investigator",
-      });
-    if (user.rows[0].status === "locked")
-      return res
-        .status(400)
-        .json({ success: false, message: "Cannot assign a locked account" });
-
     const result = await pool.query(
-      `UPDATE cases_v2 SET assigned_io_id = $1, updated_at = NOW()
-       WHERE id = $2 RETURNING id, assigned_io_id, updated_at`,
-      [assigned_io_id, id],
+      `UPDATE cases_v2 SET assigned_io_name = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING id, assigned_io_name, updated_at`,
+      [nameValue, id],
     );
 
-    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
-
-    const io = user.rows[0];
     await logAudit({
       userId: req.user?.user_id,
       username: req.user?.username,
-      eventName: "Investigator Assigned",
-      description: `Assigned ${io.first_name} ${io.last_name} to case ID ${id}`,
+      eventName: nameValue
+        ? "Investigator Assigned"
+        : "Investigator Unassigned",
+      description: nameValue
+        ? `Assigned "${nameValue}" to case ID ${id}`
+        : `Unassigned investigator from case ID ${id}`,
       action: "UPDATE",
       status: "success",
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
+
     return res.status(200).json({
       success: true,
-      message: "Investigator assigned successfully",
-      data: {
-        ...result.rows[0],
-        assigned_io_name: `${io.first_name} ${io.last_name}`,
-      },
+      message: nameValue
+        ? "Investigator assigned successfully"
+        : "Investigator unassigned successfully",
+      data: result.rows[0],
     });
   } catch (error) {
     console.error("Assign investigator error:", error);
@@ -119,41 +77,32 @@ const updateStatus = async (req, res) => {
 
     // "Referred" added — it's a valid cases_v2.status value per the CHECK
     // constraint, even though the old blotter-backed flow never exposed it here.
-    const allowed = ["Under Investigation", "Solved", "Cleared", "Referred"];
+    const allowed = ["Under Investigation", "Solved", "Cleared"];
     if (!status || !allowed.includes(status))
       return res
         .status(400)
         .json({ success: false, message: "Invalid status value" });
 
-    const caseResult = await pool.query("SELECT * FROM cases_v2 WHERE id = $1", [
-      id,
-    ]);
+    const caseResult = await pool.query(
+      "SELECT * FROM cases_v2 WHERE id = $1",
+      [id],
+    );
     if (caseResult.rows.length === 0)
       return res
         .status(404)
         .json({ success: false, message: "Case not found" });
 
-    if (
-      req.user.role === "Investigator" &&
-      caseResult.rows[0].assigned_io_id !== req.user.user_id
-    ) {
-      return res
-        .status(403)
-        .json({ success: false, message: "You are not assigned to this case" });
-    }
-
     const result = await pool.query(
       `UPDATE cases_v2
        SET status = $1::varchar,
-           priority = CASE WHEN $1::varchar IN ('Solved', 'Cleared') THEN 'Low' ELSE priority END,
+           priority = CASE WHEN $1::varchar IN ('Solved', 'Cleared') AND priority IS NOT NULL THEN 'Low' ELSE priority END,
            updated_at = NOW()
        WHERE id = $2
        RETURNING id, report_id, status, priority, updated_at`,
       [status, id],
     );
 
-    const reportNumber =
-      (await getReportNumberForCase(id)) || `Case #${id}`;
+    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
 
     await logAudit({
       userId: req.user?.user_id,
@@ -169,12 +118,8 @@ const updateStatus = async (req, res) => {
     // Notify the assigned investigator (only if someone is assigned)
     const assignedIoId = caseResult.rows[0].assigned_io_id;
     if (assignedIoId && assignedIoId !== req.user.user_id) {
-      
     }
-    // Notify admins only when investigator changes it (exclude self)
-    if (req.user.role === "Investigator") {
-      
-    }
+
     return res.status(200).json({
       success: true,
       message: "Case status updated successfully",
@@ -198,10 +143,7 @@ const getCases = async (req, res) => {
     let paramCount = 1;
 
     // Role-based filtering
-    if (role === "Investigator") {
-      whereConditions.push(`c.assigned_io_id = $${paramCount++}`);
-      params.push(userId);
-    } else if (role === "Patrol") {
+    if (role === "Patrol") {
       return res.status(200).json({ success: true, data: [] });
     } else if (role === "Barangay") {
       // Barangay users can't access Case Management at all
@@ -231,14 +173,13 @@ const getCases = async (req, res) => {
 
     const result = await pool.query(
       `SELECT c.id, c.status, c.priority, c.updated_at,
-    c.assigned_io_id,
-    CONCAT(u.first_name, ' ', u.last_name) AS assigned_io_name,
+    c.assigned_io_name,
+    c.suspect_apprehended,
     cr.crime_type,
     cr.place_barangay AS barangay,
     cr.report_number,
     cr.created_at
  FROM cases_v2 c
-   LEFT JOIN users u ON c.assigned_io_id = u.user_id
    INNER JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
 ${where}
    ORDER BY 
@@ -291,6 +232,23 @@ const getStatistics = async (req, res) => {
       params.push(priority);
     }
     const where = "WHERE " + conditions.join(" AND ");
+
+    // Seeds define which 2 methods get their own card — first 2 rows by id.
+    // Not "top by usage" — fixed to Police Response / Turn over by Barangay
+    // per the seed insert order, resolved by name so a rename doesn't break this.
+    const seedResult = await pool.query(
+      "SELECT method_name FROM suspect_apprehended_methods ORDER BY id ASC LIMIT 2",
+    );
+    const [method1 = null, method2 = null] = seedResult.rows.map(
+      (r) => r.method_name,
+    );
+
+    // Params for the two named methods are appended after the filter params.
+    const method1Idx = p++;
+    params.push(method1);
+    const method2Idx = p++;
+    params.push(method2);
+
     const result = await pool.query(
       `SELECT
     COUNT(*) AS total_cases,
@@ -298,8 +256,14 @@ const getStatistics = async (req, res) => {
     COUNT(*) FILTER (WHERE c.status = 'Solved') AS solved_cases,
     COUNT(*) FILTER (WHERE c.status = 'Cleared') AS cleared_cases,
     COUNT(*) FILTER (WHERE c.status = 'Referred') AS referred_cases,
-    COUNT(*) FILTER (WHERE c.assigned_io_id IS NULL) AS unassigned_cases,
-    COUNT(*) FILTER (WHERE c.priority = 'High') AS high_priority_cases
+    COUNT(*) FILTER (WHERE c.assigned_io_name IS NULL OR c.assigned_io_name = '') AS unassigned_cases,
+    COUNT(*) FILTER (WHERE c.priority = 'High') AS high_priority_cases,
+    COUNT(*) FILTER (WHERE c.suspect_apprehended = $${method1Idx}::varchar) AS method1_count,
+    COUNT(*) FILTER (WHERE c.suspect_apprehended = $${method2Idx}::varchar) AS method2_count,
+    COUNT(*) FILTER (
+      WHERE c.suspect_apprehended IS NOT NULL
+        AND c.suspect_apprehended NOT IN ($${method1Idx}::varchar, $${method2Idx}::varchar)
+    ) AS others_count
    FROM cases_v2 c
    INNER JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
    ${where}`,
@@ -317,6 +281,11 @@ const getStatistics = async (req, res) => {
         referred_cases: parseInt(row.referred_cases) || 0,
         unassigned_cases: parseInt(row.unassigned_cases) || 0,
         high_priority_cases: parseInt(row.high_priority_cases) || 0,
+        suspect_apprehended_breakdown: [
+          { label: method1 || "N/A", count: parseInt(row.method1_count) || 0 },
+          { label: method2 || "N/A", count: parseInt(row.method2_count) || 0 },
+          { label: "Others", count: parseInt(row.others_count) || 0 },
+        ],
       },
     });
   } catch (error) {
@@ -326,7 +295,6 @@ const getStatistics = async (req, res) => {
       .json({ success: false, message: "Error fetching statistics" });
   }
 };
-
 // GET /cases/:id — Single case with notes
 const getCaseById = async (req, res) => {
   try {
@@ -336,11 +304,9 @@ const getCaseById = async (req, res) => {
 
     const caseResult = await pool.query(
       `SELECT c.*, 
-          CONCAT(u.first_name, ' ', u.last_name) AS assigned_io_name,
           cr.crime_type, cr.place_barangay AS barangay,
           cr.report_number, cr.created_at AS report_created_at
    FROM cases_v2 c
-       LEFT JOIN users u ON c.assigned_io_id = u.user_id
        LEFT JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
        WHERE c.id = $1`,
       [id],
@@ -353,10 +319,6 @@ const getCaseById = async (req, res) => {
 
     const theCase = caseResult.rows[0];
 
-    // Permission check
-    if (role === "Investigator" && theCase.assigned_io_id !== userId) {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
     if (role === "Barangay") {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
@@ -399,21 +361,14 @@ const addNote = async (req, res) => {
         message: "Note must be at least 3 characters",
       });
 
-    const caseResult = await pool.query("SELECT * FROM cases_v2 WHERE id = $1", [
-      id,
-    ]);
+    const caseResult = await pool.query(
+      "SELECT * FROM cases_v2 WHERE id = $1",
+      [id],
+    );
     if (caseResult.rows.length === 0)
       return res
         .status(404)
         .json({ success: false, message: "Case not found" });
-
-    if (
-      req.user.role === "Investigator" &&
-      caseResult.rows[0].assigned_io_id !== req.user.user_id
-    )
-      return res
-        .status(403)
-        .json({ success: false, message: "You are not assigned to this case" });
 
     const result = await pool.query(
       `INSERT INTO case_notes_v2 (case_id, note, added_by_id, note_date)
@@ -442,11 +397,9 @@ const addNote = async (req, res) => {
 
     // Notify investigator if someone else added the note
     if (assignedIoId && assignedIoId !== req.user.user_id) {
-      
     }
     // Notify admins if investigator added the note
     if (req.user.role === "Investigator") {
-      
     }
     return res.status(201).json({
       success: true,
@@ -462,26 +415,26 @@ const addNote = async (req, res) => {
 const updatePriority = async (req, res) => {
   try {
     const { id } = req.params;
-    const { priority } = req.body;
-    if (!["Low", "Medium", "High"].includes(priority))
+    // "" / null / undefined = clear the priority (no card-level priority set)
+    const priority =
+      req.body.priority === "" ||
+      req.body.priority === null ||
+      req.body.priority === undefined
+        ? null
+        : req.body.priority;
+    if (priority !== null && !["Low", "Medium", "High"].includes(priority))
       return res
         .status(400)
         .json({ success: false, message: "Invalid priority" });
 
-    const caseResult = await pool.query("SELECT * FROM cases_v2 WHERE id = $1", [
-      id,
-    ]);
+    const caseResult = await pool.query(
+      "SELECT * FROM cases_v2 WHERE id = $1",
+      [id],
+    );
     if (caseResult.rows.length === 0)
       return res
         .status(404)
         .json({ success: false, message: "Case not found" });
-    if (
-      req.user.role === "Investigator" &&
-      caseResult.rows[0].assigned_io_id !== req.user.user_id
-    )
-      return res
-        .status(403)
-        .json({ success: false, message: "You are not assigned to this case" });
 
     const result = await pool.query(
       "UPDATE cases_v2 SET priority = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
@@ -491,7 +444,9 @@ const updatePriority = async (req, res) => {
       userId: req.user?.user_id,
       username: req.user?.username,
       eventName: "Case Priority Updated",
-      description: `Updated case ID ${id} priority to "${priority}"`,
+      description: priority
+        ? `Updated case ID ${id} priority to "${priority}"`
+        : `Cleared priority for case ID ${id}`,
       action: "UPDATE",
       status: "success",
       source: "Web Portal",
@@ -502,15 +457,49 @@ const updatePriority = async (req, res) => {
 
     const assignedIoId = caseResult.rows[0].assigned_io_id;
     if (assignedIoId && assignedIoId !== req.user.user_id) {
-      
     }
     if (req.user.role === "Investigator") {
-      
     }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /cases/:id/suspect-apprehended
+const updateSuspectApprehended = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const raw = req.body.suspect_apprehended;
+    const value = raw && raw.trim().length > 0 ? raw.trim() : null;
+
+    const caseResult = await pool.query("SELECT id FROM cases_v2 WHERE id = $1", [id]);
+    if (caseResult.rows.length === 0)
+      return res.status(404).json({ success: false, message: "Case not found" });
+
+    const result = await pool.query(
+      "UPDATE cases_v2 SET suspect_apprehended = $1, updated_at = NOW() WHERE id = $2 RETURNING *",
+      [value, id],
+    );
+
+    await logAudit({
+      userId: req.user?.user_id,
+      username: req.user?.username,
+      eventName: "Case Suspect Apprehended Updated",
+      description: value
+        ? `Set case ID ${id} suspect apprehended to "${value}"`
+        : `Cleared suspect apprehended for case ID ${id}`,
+      action: "UPDATE",
+      status: "success",
+      source: "Web Portal",
+      ipAddress: getClientIp(req),
+    });
+
+    res.status(200).json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error("Update suspect apprehended error:", error);
+    res.status(500).json({ success: false, message: "Error updating suspect apprehended" });
   }
 };
 
@@ -531,14 +520,6 @@ const editNote = async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Note not found" });
-
-    if (
-      req.user.role === "Investigator" &&
-      existing.rows[0].added_by_id !== req.user.user_id
-    )
-      return res
-        .status(403)
-        .json({ success: false, message: "Cannot edit others' notes" });
 
     const result = await pool.query(
       `UPDATE case_notes_v2 SET note = $1, edited_at = NOW()
@@ -573,17 +554,10 @@ const deleteNote = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Note not found" });
 
-    if (
-      req.user.role === "Investigator" &&
-      existing.rows[0].added_by_id !== req.user.user_id
-    )
-      return res
-        .status(403)
-        .json({ success: false, message: "Cannot delete others' notes" });
-
-    await pool.query("UPDATE case_notes_v2 SET deleted_at = NOW() WHERE id = $1", [
-      noteId,
-    ]);
+    await pool.query(
+      "UPDATE case_notes_v2 SET deleted_at = NOW() WHERE id = $1",
+      [noteId],
+    );
 
     await logAudit({
       userId: req.user?.user_id,
@@ -613,9 +587,10 @@ const restoreNote = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Note not found or not deleted" });
 
-    await pool.query("UPDATE case_notes_v2 SET deleted_at = NULL WHERE id = $1", [
-      noteId,
-    ]);
+    await pool.query(
+      "UPDATE case_notes_v2 SET deleted_at = NULL WHERE id = $1",
+      [noteId],
+    );
     await logAudit({
       userId: req.user?.user_id,
       username: req.user?.username,
@@ -636,6 +611,7 @@ module.exports = {
   assignInvestigator,
   updateStatus,
   updatePriority,
+  updateSuspectApprehended,
   getCases,
   getCaseById,
   addNote,

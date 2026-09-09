@@ -4,7 +4,7 @@
 // as-is, and duplicates get caught by the report_number unique constraint.
 
 const { logAudit, getClientIp } = require("../../../shared/utils/auditLogger");
-const XLSX = require("xlsx");
+const ExcelJS = require("exceljs");
 
 // Same order/casing as the import template — this is what makes
 // export → re-import round-trip correctly.
@@ -60,45 +60,86 @@ const splitDateTime = (str) => {
   return { date: `${y}-${m}-${day}`, time: `${hours}:${mins} ${ampm}` };
 };
 
-function buildBlotterExcel(records, meta = {}) {
-  const rows = records.map((r) => {
-    const { date, time } = splitDateTime(r.date_time_commission);
-    return {
-      "Report Number": r.report_number || "",
-      stageOfFelony: r.stage_of_felony || "",
-      barangay: r.place_barangay || "",
-      DATE: date,
-      TIME: time,
-      offense: r.crime_type || "",
-      typeofOperation: r.type_of_operation || "",
-      // Export the NAME, not the id — findOrCreateModus / findOrCreateTypeOfOperation /
-      // MobileUnit.findOrCreate on re-import resolve by name, same as manual entry.
-      modus: r.modus_name || "",
-      lat: r.lat ?? "",
-      lng: r.lng ?? "",
-      casestatus: r.status || r.case_status || "",
-      "Assigned Mobile Unit": r.assigned_mobile_name || "",
-    };
-  });
-
-  const worksheet = XLSX.utils.json_to_sheet(rows, { header: EXPORT_HEADERS });
-  worksheet["!cols"] = COLUMN_WIDTHS;
+async function buildBlotterExcel(records, meta = {}) {
+  const workbook = new ExcelJS.Workbook();
 
   // Sheet tab name follows the "cy <year>" convention from the reference
   // template, based on the export's date range.
   const year = meta.dateFrom ? new Date(meta.dateFrom).getFullYear() : new Date().getFullYear();
-  const sheetName = `cy ${year}`;
+  const worksheet = workbook.addWorksheet(`cy ${year}`);
 
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
-  return XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  // Column widths only — the table header itself is written by addTable()
+  // below, not here, so this doesn't create a second header row.
+  worksheet.columns = COLUMN_WIDTHS.map((w) => ({ width: w.wch }));
+
+  const rows = records.map((r) => {
+    const { date, time } = splitDateTime(r.date_time_commission);
+    // Order must match EXPORT_HEADERS exactly — addTable() below writes
+    // these as plain arrays, positional not keyed.
+    return [
+      r.report_number || "",
+      r.stage_of_felony || "",
+      r.place_barangay || "",
+      date,
+      time,
+      r.crime_type || "",
+      r.type_of_operation || "",
+      // Export the NAME, not the id — findOrCreateModus / findOrCreateTypeOfOperation /
+      // MobileUnit.findOrCreate on re-import resolve by name, same as manual entry.
+      r.modus_name || "",
+      r.lat ?? "",
+      r.lng ?? "",
+      r.status || r.case_status || "",
+      r.assigned_mobile_name || "",
+    ];
+  });
+
+  // Real Excel Table object — this is what gives the banded rows and
+  // filter dropdown arrows. A plain styled range can't produce the filter
+  // arrows; only an actual ListObject/Table can.
+  worksheet.addTable({
+    name: "BlotterRecords",
+    ref: "A1",
+    headerRow: true,
+    totalsRow: false,
+    style: {
+      theme: "TableStyleMedium6",
+      showRowStripes: true,
+    },
+    columns: EXPORT_HEADERS.map((name) => ({ name, filterButton: true })),
+    rows,
+  });
+
+  // Header cell colors flag hard-fail vs nullable columns to whoever opens
+  // the file — same required/optional split enforced in importCrimeReports:
+  // DATE, TIME, barangay, offense are the only columns that skip a row if
+  // blank; everything else is nullable. Direct cell formatting here takes
+  // priority over the table theme's default header fill, so this survives
+  // being opened in Excel even with a table style applied.
+  const REQUIRED_HEADERS = new Set(["barangay", "DATE", "TIME", "offense"]);
+  const REQUIRED_FILL = "FF1E3A5F"; // navy — matches the app's --navy-primary
+  const OPTIONAL_FILL = "FF6B7280"; // gray — signals "nullable"
+
+  const headerRow = worksheet.getRow(1);
+  EXPORT_HEADERS.forEach((header, i) => {
+    const cell = headerRow.getCell(i + 1); // ExcelJS columns are 1-indexed
+    const isRequired = REQUIRED_HEADERS.has(header);
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: isRequired ? REQUIRED_FILL : OPTIONAL_FILL },
+    };
+    cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
+  });
+
+  return workbook.xlsx.writeBuffer();
 }
 
 const exportBlotter = async (req, res) => {
   try {
     const { records = [], meta = {} } = req.body;
 
-    const excelBuffer = buildBlotterExcel(records, meta);
+    const excelBuffer = await buildBlotterExcel(records, meta);
 
     const dateStr =
       meta.dateFrom && meta.dateTo

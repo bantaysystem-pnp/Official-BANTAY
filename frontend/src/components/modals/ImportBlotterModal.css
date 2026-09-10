@@ -95,9 +95,11 @@
   background: white; border-radius: 12px;
   width: 540px; max-width: 95vw;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   position: relative;
-  min-height: 220px; /* ← add this */
+  min-height: 220px;
+  max-height: 90vh;
 }
 .im-progress-box {
   text-align: center; padding: 32px 40px;

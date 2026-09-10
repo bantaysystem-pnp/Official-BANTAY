@@ -1,0 +1,366 @@
+/* frontend\src\components\views\TypeOfOperationManagement.css */
+
+:root {
+  --navy-dark: #0a1628;
+  --navy-primary: #1e3a5f;
+  --navy-light: #2d4a6f;
+  --red-primary: #c1272d;
+  --red-dark: #8b1a1f;
+  --white: #ffffff;
+  --gray-50: #f8f9fa;
+  --gray-100: #e9ecef;
+  --gray-200: #dee2e6;
+  --gray-300: #ced4da;
+  --gray-600: #6c757d;
+  --gray-700: #495057;
+  --gray-900: #212529;
+}
+
+.too-container { padding: 32px; flex: 1; }
+
+/* HEADER */
+.too-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 32px; }
+.too-header h1 { font-family: "Inter", sans-serif; font-size: 28px; font-weight: 700; color: var(--navy-dark); margin: 0 0 8px; }
+.too-header p { color: var(--gray-600); font-size: 15px; margin: 0; }
+
+/* FILTER BAR */
+.too-filter-bar { background: var(--white); border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 1px 3px rgba(0,0,0,0.08); border-left: 4px solid var(--navy-primary); }
+.too-filter-select { padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: 4px; font-size: 14px; font-family: "DM Sans", sans-serif; background: var(--white); color: var(--gray-900); min-width: 180px; }
+.too-filter-select:focus { outline: none; border-color: var(--navy-primary); }
+.too-count { color: var(--gray-600); font-size: 13px; margin-left: auto; }
+
+/* TABLE CARD */
+.too-table-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: 8px; overflow: hidden; }
+
+/* TABLE WRAPPER */
+.too-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+/* TABLE */
+.too-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  min-width: 500px;
+}
+.too-pagination-btn.too-pagination-active {
+  background: var(--navy-primary);
+  color: white;
+  border-color: var(--navy-primary);
+}
+.too-table thead { background: var(--gray-50); border-top: 3px solid var(--navy-primary); }
+
+/* COLUMN WIDTHS — 4 columns: Operation Name / Status / Created / Actions */
+.too-table th:nth-child(1) { width: 45%; }
+.too-table th:nth-child(2) { width: 15%; }
+.too-table th:nth-child(3) { width: 18%; }
+.too-table th:nth-child(4) { width: 22%; }
+
+/* BASE TH */
+.too-table th {
+  padding: 16px 20px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+/* BASE TD */
+.too-table td {
+  padding: 16px 20px;
+  font-size: 14px;
+  color: var(--gray-700);
+  border-bottom: 1px solid var(--gray-200);
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* FIRST COLUMN — balanced left edge */
+.too-table th:nth-child(1),
+.too-table td:nth-child(1) {
+  padding-left: 40px;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+/* LAST COLUMN — balanced right edge */
+.too-table th:nth-child(4),
+.too-table td:nth-child(4) {
+  padding-right: 28px;
+  white-space: nowrap;
+}
+
+/* STATUS — never truncate */
+.too-table td:nth-child(2) {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+/* CREATED — never truncate */
+.too-table td:nth-child(3) {
+  white-space: nowrap;
+  font-size: 13px;
+}
+
+.too-table tbody tr:nth-child(even) { background: #f8f9fb; }
+.too-table tbody tr:hover { background: var(--gray-50); }
+.too-table tbody tr:last-child td { border-bottom: none; }
+.too-center { text-align: center; color: var(--gray-600); padding: 40px !important; }
+
+/* STATUS BADGE */
+.too-status { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+.too-status.active { background: rgba(34, 197, 94, 0.1); color: #16a34a; }
+.too-status.inactive { background: rgba(156, 163, 175, 0.1); color: #6b7280; }
+
+/* ACTION BUTTONS */
+.too-actions { display: flex; gap: 8px; flex-wrap: nowrap; align-items: center; }
+
+.too-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  font-family: "DM Sans", sans-serif;
+  transition: all 0.18s ease;
+  background: none;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.too-action-btn svg { flex-shrink: 0; }
+
+.too-action-btn-edit {
+  color: var(--navy-primary);
+  background: rgba(30, 58, 95, 0.07);
+}
+.too-action-btn-edit:hover {
+  background: rgba(30, 58, 95, 0.15);
+  color: var(--navy-dark);
+}
+
+.too-action-btn-remove {
+  color: #dc2626;
+  background: rgba(239, 68, 68, 0.08);
+}
+.too-action-btn-remove:hover {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+}
+
+.too-action-btn-restore {
+  color: #059669;
+  background: rgba(16, 185, 129, 0.08);
+}
+.too-action-btn-restore:hover {
+  background: rgba(16, 185, 129, 0.16);
+  color: #047857;
+}
+
+/* PRIMARY / SECONDARY / DANGER / SUCCESS BUTTONS */
+.too-btn-primary { padding: 12px 24px; background: var(--red-primary); color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
+.too-btn-primary:hover { background: var(--red-dark); }
+
+.too-btn-secondary { padding: 12px 24px; background: var(--white); color: var(--gray-700); border: 1px solid var(--gray-300); border-radius: 6px; cursor: pointer; font-size: 14px; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
+.too-btn-secondary:hover { background: var(--gray-50); }
+
+.too-btn-danger { padding: 12px 24px; background: #dc2626; color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
+.too-btn-danger:hover { background: #b91c1c; }
+
+.too-btn-success { padding: 12px 24px; background: #059669; color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
+.too-btn-success:hover { background: #047857; }
+
+/* MODAL */
+.too-modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+.too-modal { background: var(--white); border-radius: 8px; width: 100%; max-width: 520px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); max-height: 90vh; display: flex; flex-direction: column; }
+.too-modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 32px; background: linear-gradient(135deg, var(--navy-dark) 0%, var(--navy-primary) 100%); border-bottom: 3px solid var(--red-primary); border-radius: 8px 8px 0 0; }
+.too-modal-header h2 { font-family: "Inter", sans-serif; font-size: 18px; font-weight: 700; color: white; margin: 0; }
+.too-modal-close { font-size: 28px; font-weight: 300; color: rgba(255,255,255,0.7); cursor: pointer; line-height: 1; }
+.too-modal-close:hover { color: var(--gray-900); }
+.too-modal-body { padding: 28px 32px; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; flex: 1; }
+.too-modal-footer { padding: 20px 32px; border-top: 1px solid var(--gray-200); display: flex; justify-content: flex-end; gap: 12px; background: var(--gray-50); border-radius: 0 0 8px 8px; }
+
+/* FORM */
+.too-form-group { display: flex; flex-direction: column; gap: 6px; }
+.too-form-group label { font-size: 12px; font-weight: 600; color: var(--gray-700); text-transform: uppercase; letter-spacing: 0.5px; }
+.too-input { padding: 10px 12px; border: 1px solid var(--gray-300); border-radius: 4px; font-size: 14px; font-family: "DM Sans", sans-serif; color: var(--gray-900); background: var(--white); width: 100%; box-sizing: border-box; }
+.too-input:focus { outline: none; border-color: var(--navy-primary); }
+.too-input.error { border-color: var(--red-primary); }
+.too-error { color: var(--red-primary); font-size: 12px; }
+
+/* TOAST */
+.too-toast {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  min-width: 320px;
+  max-width: 420px;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 9999;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  animation: tooSlideIn 0.3s ease-out;
+  background: white;
+  border: 1px solid #e5e7eb;
+  color: #111827;
+}
+
+.too-toast-success { border-left: 4px solid #10b981; }
+.too-toast-error { border-left: 4px solid #dc2626; }
+.too-toast-content { display: flex; align-items: center; gap: 10px; }
+.too-toast-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.too-toast-success .too-toast-icon { color: #10b981; }
+.too-toast-error .too-toast-icon { color: #dc2626; }
+
+@keyframes tooSlideIn {
+  from { transform: translateX(400px); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+
+/* PAGINATION */
+.too-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--white);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.too-pagination-info {
+  font-size: 14px;
+  color: var(--gray-600);
+  font-weight: 500;
+}
+
+.too-pagination-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.too-pagination-btn {
+  padding: 8px 14px;
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: "DM Sans", sans-serif;
+  min-width: 40px;
+}
+
+.too-pagination-btn:hover:not(:disabled) {
+  background: var(--gray-50);
+  border-color: var(--navy-primary);
+  color: var(--navy-primary);
+}
+
+.too-pagination-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--gray-100);
+}
+
+.too-pagination-current {
+  padding: 8px 16px;
+  color: var(--navy-primary);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.too-apply-btn {
+  height: 38px;
+  padding: 0 20px;
+  background: var(--red-primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.too-apply-btn:hover { background: var(--red-dark); }
+.too-apply-btn-dirty { box-shadow: 0 0 0 3px rgba(193, 39, 45, 0.22); }
+
+.too-reset-btn {
+  height: 38px;
+  width: 38px;
+  padding: 0;
+  border: 1px solid var(--gray-300);
+  border-radius: 6px;
+  background: var(--white);
+  color: var(--gray-700);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.too-reset-btn:hover { background: var(--gray-50); border-color: var(--navy-primary); color: var(--navy-primary); }
+
+/* ===================== RESPONSIVE ===================== */
+
+/* Hide Created at ≤900px */
+@media (max-width: 900px) {
+  .too-table th:nth-child(3),
+  .too-table td:nth-child(3) { display: none; }
+  .too-table th:nth-child(1) { width: 50%; }
+  .too-table th:nth-child(2) { width: 20%; }
+  .too-table th:nth-child(4) { width: 30%; }
+}
+
+/* Hide Status at ≤720px */
+@media (max-width: 720px) {
+  .too-table th:nth-child(2),
+  .too-table td:nth-child(2) { display: none; }
+  .too-table th:nth-child(1) { width: 58%; }
+  .too-table th:nth-child(4) { width: 42%; }
+}
+
+/* Shrink at ≤600px */
+@media (max-width: 600px) {
+  .too-container { padding: 16px; }
+
+  .too-header { flex-direction: column; gap: 12px; }
+  .too-header h1 { font-size: 22px; }
+
+  .too-filter-bar { padding: 16px; gap: 12px; flex-direction: column; align-items: stretch; }
+  .too-filter-select { min-width: 0; width: 100%; }
+  .too-apply-btn { width: 100%; }
+  .too-reset-btn { width: 100%; }
+  .too-count { margin-left: 0; }
+
+  .too-table th:nth-child(1),
+  .too-table td:nth-child(1) { padding-left: 16px; }
+  .too-table th:nth-child(4),
+  .too-table td:nth-child(4) { padding-right: 16px; }
+
+  .too-action-btn { font-size: 12px; padding: 6px 8px; gap: 4px; }
+  .too-action-btn svg { width: 12px; height: 12px; }

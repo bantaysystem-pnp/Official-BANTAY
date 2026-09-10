@@ -47,6 +47,7 @@ app.use("/users", require("./features/user/routes/profileRoutes"));
 app.use("/user-management", require("./features/user/routes/userRoutes"));
 app.use("/blotters",         require("./features/blotter/routes/crimeReportV2Routes.js"));
 app.use("/modus-management", require("./features/modus/routes/modusRoutes"));
+app.use("/type-of-operation-management", require("./features/type-of-operation/routes/typeOfOperationRoutes"));
 app.use("/mobile-units",     require("./features/mobile-units/routes/mobileUnitRoutes"));
 app.use("/cases",            require("./features/cases/routes/casesRoutes"));
 app.use("/crime-map",        require("./features/crime-map/routes/crimeMapRoutes"));

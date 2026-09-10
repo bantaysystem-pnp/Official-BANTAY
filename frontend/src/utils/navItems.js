@@ -40,6 +40,12 @@ export const navItems = [
         icon: `<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`,
       },
       {
+  key: "type-of-operation-management",
+  label: "Type of Operation",
+  path: "/type-of-operation-management",
+  icon: `<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>`,
+},
+      {
         key: "mobile-unit-management",
         label: "Mobile Unit Management",
         path: "/mobile-unit-management",

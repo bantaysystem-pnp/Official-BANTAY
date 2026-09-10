@@ -19,7 +19,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PageLayout from "./components/layout/PageLayout.jsx";
 import AuditLog from "./components/views/AuditLog";
 import Overview from "./components/views/Overview";
-
+import TypeOfOperationManagement from "./components/views/TypeOfOperationManagement";
 
 
 function App() {
@@ -59,6 +59,7 @@ function App() {
           <Route path="/profile" element={<ProfileSettings />} />
           <Route path="/modus-management" element={<ModusManagement />} />
           <Route path="/mobile-unit-management" element={<MobileUnitManagement />} />
+          <Route path="/type-of-operation-management" element={<TypeOfOperationManagement />} />
           <Route path="/audit-log" element={<AuditLog />} />
         </Route>
 

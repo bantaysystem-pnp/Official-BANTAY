@@ -1,0 +1,819 @@
+/* =========================================================================
+   CRIME DASHBOARD — COMMAND CENTER THEME
+   -------------------------------------------------------------------------
+   Import this AFTER CrimeDashboard.css in CrimeDashboard.jsx:
+
+     import "./CrimeDashboard.css";
+     import "./CrimeDashboardCommandCenter.css";
+
+   This file does two things:
+     1. Defines the cc- (command-center) design tokens + the dashboard grid
+        shell (cc-*) used by the restructured CrimeDashboard.jsx return().
+     2. Restyles the EXISTING cd-* component classes (summary cards, tables,
+        chart cards, filter bar, pagination, badges, etc.) so every real
+        chart/table/component keeps its logic and DOM structure but renders
+        in the dark navy / cyan police command-center look instead of the
+        light SaaS look. No component JSX/behavior is touched — only how
+        cd-* classes paint.
+   ========================================================================= */
+
+:root {
+  /* ---- base surfaces ---- */
+  --cc-bg-deep: #06152f;
+  --cc-bg-deep-2: #071a35;
+  --cc-panel: #0b2447;
+  --cc-panel-2: #0b2a52;
+  --cc-panel-3: #123a68;
+  --cc-panel-inset: #081c3a;
+
+  /* ---- accents ---- */
+  --cc-cyan: #19a7e0;
+  --cc-cyan-dim: #1597d4;
+  --cc-cyan-glow: rgba(25, 167, 224, 0.35);
+  --cc-border: rgba(25, 167, 224, 0.28);
+  --cc-border-strong: rgba(25, 167, 224, 0.55);
+
+  --cc-magenta: #ec4899;
+  --cc-magenta-dim: rgba(236, 72, 153, 0.16);
+  --cc-green: #22c55e;
+  --cc-green-dim: rgba(34, 197, 94, 0.14);
+  --cc-amber: #f59e0b;
+  --cc-amber-dim: rgba(245, 158, 11, 0.14);
+  --cc-red: #ef4444;
+  --cc-red-dim: rgba(239, 68, 68, 0.14);
+
+  /* ---- text ---- */
+  --cc-text: #eaf2fb;
+  --cc-text-dim: #9fb8d9;
+  --cc-text-faint: #5f7fa6;
+
+  --cc-radius: 4px;
+  --cc-radius-sm: 3px;
+}
+
+/* =========================================================================
+   PAGE SHELL — replaces the plain .content-area background for this page
+   ========================================================================= */
+.cc-shell {
+  background: radial-gradient(1200px 800px at 15% -10%, #0a2248 0%, transparent 60%),
+    linear-gradient(180deg, var(--cc-bg-deep) 0%, var(--cc-bg-deep-2) 100%);
+  margin: -28px -32px -64px;
+  padding: 20px 22px 40px;
+  min-height: calc(100vh - 73px);
+  color: var(--cc-text);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 800px) {
+  .cc-shell {
+    margin: -16px -16px -40px;
+    padding: 14px 12px 32px;
+  }
+}
+
+/* ---- compact header row ---- */
+.cc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+  background: linear-gradient(90deg, var(--cc-panel) 0%, var(--cc-panel-3) 100%);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.cc-header-title {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.cc-header-title h1 {
+  font-family: "Inter", sans-serif;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--cc-text);
+  margin: 0;
+}
+
+.cc-header-sub {
+  font-size: 11px;
+  color: var(--cc-cyan);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.cc-header-daterange {
+  font-size: 11px;
+  color: var(--cc-text-dim);
+}
+
+/* re-skin the export button + filter bar for this shell */
+.cc-shell .cd-export-btn {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+  background: var(--cc-panel-2);
+  border: 1px solid var(--cc-border);
+  color: var(--cc-cyan);
+}
+.cc-shell .cd-export-btn:hover:not(:disabled) {
+  background: var(--cc-panel-3);
+  border-color: var(--cc-border-strong);
+  color: #fff;
+}
+
+.cc-shell .cd-filter-bar {
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-border);
+  border-left: 4px solid var(--cc-cyan);
+  margin-bottom: 12px;
+}
+.cc-shell .cd-filter-bar-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+.cc-shell .cd-filter-bar-header {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.cc-shell .cd-filter-bar-title {
+  color: var(--cc-text);
+}
+.cc-shell .cd-filter-icon svg {
+  stroke: var(--cc-cyan);
+}
+.cc-shell .cd-filter-toggle-btn {
+  color: var(--cc-text-dim);
+}
+.cc-shell .cd-preset-row {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.cc-shell .cd-preset-label {
+  color: var(--cc-text-dim);
+}
+.cc-shell .cd-custom-range input[type="date"],
+.cc-shell .cd-filter-group select,
+.cc-shell .cd-filter-group input[type="date"],
+.cc-shell .cd-filter-group input[type="time"],
+.cc-shell .cd-brgy-ms-trigger {
+  background: var(--cc-panel-inset);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--cc-text);
+  color-scheme: dark;
+}
+.cc-shell .cd-filter-group label {
+  color: var(--cc-text-dim);
+}
+.cc-shell .cd-brgy-ms-placeholder {
+  color: var(--cc-text-faint);
+}
+.cc-shell .cd-apply-btn {
+  background: var(--cc-cyan-dim);
+}
+.cc-shell .cd-apply-btn:hover {
+  background: var(--cc-cyan);
+}
+.cc-shell .cd-reset-btn {
+  background: var(--cc-panel-inset);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--cc-text-dim);
+}
+
+/* =========================================================================
+   MAIN GRID — dense, asymmetric 3-column command-center layout
+   ========================================================================= */
+.cc-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1.35fr) 360px;
+  grid-template-areas:
+    "kpi     center-a right-a"
+    "left-a  center-a right-a"
+    "left-b  center-b right-b"
+    "left-c  center-b right-c"
+    "wide    wide     wide";
+  gap: 12px;
+  align-items: start;
+}
+
+.cc-area-kpi        { grid-area: kpi; }
+.cc-area-left-a      { grid-area: left-a; }
+.cc-area-left-b      { grid-area: left-b; }
+.cc-area-left-c      { grid-area: left-c; }
+.cc-area-center-a    { grid-area: center-a; }
+.cc-area-center-b    { grid-area: center-b; }
+.cc-area-right-a     { grid-area: right-a; }
+.cc-area-right-b     { grid-area: right-b; }
+.cc-area-right-c     { grid-area: right-c; }
+.cc-area-wide        { grid-area: wide; }
+
+@media (max-width: 1500px) {
+  .cc-grid {
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .cc-grid {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "kpi     kpi"
+      "center-a right-a"
+      "center-a right-a"
+      "left-a  left-b"
+      "left-c  right-b"
+      "center-b right-c"
+      "wide    wide";
+  }
+}
+
+@media (max-width: 760px) {
+  .cc-grid {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "kpi"
+      "center-a"
+      "right-a"
+      "left-a"
+      "left-b"
+      "left-c"
+      "center-b"
+      "right-b"
+      "right-c"
+      "wide";
+  }
+}
+
+/* =========================================================================
+   PANEL — the base command-center card. Every section is dropped inside
+   one of these instead of the light cd-chart-card look.
+   ========================================================================= */
+.cc-panel {
+  background: linear-gradient(180deg, var(--cc-panel) 0%, var(--cc-panel-inset) 100%);
+  border: 1px solid var(--cc-border);
+  border-radius: var(--cc-radius);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.02) inset, 0 6px 20px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cc-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 12px;
+  background: linear-gradient(90deg, var(--cc-panel-2) 0%, var(--cc-panel-3) 100%);
+  border-bottom: 1px solid var(--cc-border);
+  flex-shrink: 0;
+}
+
+.cc-panel-title {
+  font-family: "Inter", sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cc-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cc-panel-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--cc-cyan);
+  background: rgba(25, 167, 224, 0.12);
+  border: 1px solid var(--cc-border);
+  border-radius: 10px;
+  padding: 1px 7px;
+  white-space: nowrap;
+}
+
+.cc-panel-tag-temp {
+  color: var(--cc-amber);
+  background: var(--cc-amber-dim);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+.cc-panel-body {
+  padding: 10px 12px 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-panel-body-flush {
+  padding: 0;
+}
+
+/* =========================================================================
+   TOTAL FOCUS CRIME — big KPI panel (top-left)
+   ========================================================================= */
+.cc-kpi-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 18px 12px 16px;
+  text-align: center;
+}
+
+.cc-kpi-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cc-cyan);
+}
+
+.cc-kpi-value {
+  font-family: "Inter", sans-serif;
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 0 22px rgba(25, 167, 224, 0.45);
+  margin: 6px 0 2px;
+}
+
+.cc-kpi-sub {
+  font-size: 11px;
+  color: var(--cc-text-dim);
+}
+
+.cc-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-top: 14px;
+}
+
+.cc-kpi-mini {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--cc-radius-sm);
+  padding: 6px 4px;
+}
+
+.cc-kpi-mini-val {
+  font-family: "Inter", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--cc-magenta);
+}
+
+.cc-kpi-mini-lbl {
+  font-size: 8.5px;
+  color: var(--cc-text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+/* =========================================================================
+   RESTYLE EXISTING SUMMARY CARDS to fit the dark panel language
+   (kept inside a cc-panel wrapper — component/logic untouched)
+   ========================================================================= */
+.cc-summary-wrap .cd-summary-cards {
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 0;
+}
+.cc-summary-wrap .cd-summary-card {
+  border-radius: var(--cc-radius-sm);
+  padding: 10px;
+}
+.cc-summary-wrap .cd-summary-value {
+  font-size: 22px;
+}
+.cc-summary-wrap .cd-summary-label {
+  font-size: 10px;
+}
+.cc-summary-wrap .cd-summary-sub {
+  font-size: 9px;
+}
+
+/* =========================================================================
+   RESTYLE cd-chart-card / cd-brgy-table / cd-crime-table so every REAL
+   chart & table (recharts containers included) reads as part of this
+   system. We do not touch the components — just their container chrome.
+   ========================================================================= */
+.cc-embed .cd-chart-card {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 8px 10px 10px;
+  margin-bottom: 0;
+}
+
+.cc-embed .cd-chart-card-header {
+  margin-bottom: 8px;
+}
+
+.cc-embed .cd-chart-card-header h3 {
+  font-family: "Inter", sans-serif;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--cc-text);
+}
+
+.cc-embed .cd-chart-subtitle {
+  color: var(--cc-text-faint);
+  font-size: 10px;
+}
+
+.cc-embed .cd-cs-legend {
+  color: var(--cc-text-dim);
+}
+
+/* recharts text + grid lines -> cyan/dim on dark bg */
+.cc-embed .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.08);
+}
+.cc-embed .recharts-cartesian-axis-tick text {
+  fill: var(--cc-text-dim) !important;
+}
+.cc-embed .recharts-text {
+  fill: var(--cc-text-dim);
+}
+.cc-embed .recharts-default-tooltip {
+  background: var(--cc-panel-inset) !important;
+  border: 1px solid var(--cc-border) !important;
+  color: var(--cc-text) !important;
+}
+
+/* tables */
+.cc-embed .cd-crime-table,
+.cc-embed .cd-brgy-table,
+.cc-embed .cd-risk-table {
+  font-size: 11.5px;
+}
+.cc-embed .cd-crime-table thead tr,
+.cc-embed .cd-brgy-table thead tr,
+.cc-embed .cd-risk-table thead tr {
+  background: var(--cc-panel-3);
+  color: var(--cc-cyan);
+}
+.cc-embed .cd-crime-table th,
+.cc-embed .cd-brgy-table th,
+.cc-embed .cd-risk-table th {
+  font-size: 9.5px;
+  letter-spacing: 0.04em;
+  padding: 6px 8px;
+}
+.cc-embed .cd-crime-table td,
+.cc-embed .cd-brgy-table td,
+.cc-embed .cd-risk-table td {
+  padding: 5px 8px;
+  color: var(--cc-text-dim);
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+.cc-embed .cd-crime-table tbody tr,
+.cc-embed .cd-brgy-table tbody tr,
+.cc-embed .cd-risk-table tbody tr {
+  border-bottom-color: rgba(255, 255, 255, 0.06);
+}
+.cc-embed .cd-crime-table tbody tr:hover,
+.cc-embed .cd-brgy-table tbody tr:hover,
+.cc-embed .cd-risk-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+.cc-embed .cd-crime-table tfoot tr {
+  background: rgba(255, 255, 255, 0.04);
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+.cc-embed .cd-crime-table tfoot td {
+  color: var(--cc-text);
+}
+.cc-embed .cd-crime-name,
+.cc-embed .cd-brgy-name,
+.cc-embed .cd-risk-brgy-name {
+  color: var(--cc-cyan) !important;
+}
+.cc-embed .cd-brgy-primary {
+  color: var(--cc-magenta) !important;
+}
+.cc-embed .cd-brgy-rank {
+  color: var(--cc-text-faint) !important;
+}
+.cc-embed .cd-num-cell.cd-cleared { color: #60a5fa !important; }
+.cc-embed .cd-num-cell.cd-solved { color: var(--cc-green) !important; }
+.cc-embed .cd-num-cell.cd-ui { color: var(--cc-amber) !important; }
+
+.cc-embed .cd-badge-green {
+  background: var(--cc-green-dim);
+  color: var(--cc-green);
+}
+.cc-embed .cd-badge-red {
+  background: var(--cc-red-dim);
+  color: #f87171;
+}
+.cc-embed .cd-badge-amber {
+  background: var(--cc-amber-dim);
+  color: var(--cc-amber);
+}
+
+/* pagination */
+.cc-embed .cd-brgy-pagination {
+  background: transparent;
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+.cc-embed .cd-brgy-page-info {
+  color: var(--cc-text-faint);
+}
+.cc-embed .cd-page-btn {
+  background: var(--cc-panel-inset);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: var(--cc-text-dim);
+}
+.cc-embed .cd-page-btn:hover:not(:disabled) {
+  background: var(--cc-cyan-dim);
+  border-color: var(--cc-cyan-dim);
+  color: #fff;
+}
+.cc-embed .cd-page-btn-active {
+  background: var(--cc-cyan-dim) !important;
+  border-color: var(--cc-cyan-dim) !important;
+}
+
+/* fixed-height table/chart wrappers keep working, just flush */
+.cc-embed .cd-table-fixed-height,
+.cc-embed .cd-chart-fixed-height {
+  background: transparent;
+}
+
+/* delta text stays semantic (red = more crime, green = less) */
+.cc-embed .cd-delta-up { color: #f87171; }
+.cc-embed .cd-delta-down { color: var(--cc-green); }
+.cc-embed .cd-delta-neutral { color: var(--cc-text-faint); }
+
+/* th tooltip popovers */
+.cc-embed .cd-th-tooltip {
+  background: var(--cc-panel-inset);
+  border-color: var(--cc-border);
+}
+.cc-embed .cd-th-tooltip-title { color: var(--cc-cyan); }
+.cc-embed .cd-th-tooltip-formula { color: var(--cc-text-dim); }
+
+/* barangay risk backtest panel */
+.cc-embed .cd-backtest-panel {
+  background: var(--cc-panel-inset);
+  border-color: var(--cc-border);
+}
+.cc-embed .cd-backtest-metric-box {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.cc-embed .cd-backtest-metric-val,
+.cc-embed .cd-risk-detail-stat-val {
+  color: var(--cc-text);
+}
+.cc-embed .cd-risk-table tbody tr {
+  cursor: pointer;
+}
+.cc-embed .cd-risk-expand-row td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.cc-embed .cd-risk-expand-inner {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+.cc-embed .cd-risk-bar-bg {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* =========================================================================
+   DONUT (Mode of Reporting / Case Status visual) — lightweight SVG donut
+   used by the two temporary/placeholder panels
+   ========================================================================= */
+.cc-donut-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.cc-donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-donut-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--cc-text-dim);
+}
+
+.cc-donut-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cc-donut-legend-val {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--cc-text);
+}
+
+/* =========================================================================
+   SAMPLE / TEMPORARY DATA BANNER
+   ========================================================================= */
+.cc-temp-note {
+  font-size: 9.5px;
+  color: var(--cc-amber);
+  background: var(--cc-amber-dim);
+  border: 1px dashed rgba(245, 158, 11, 0.4);
+  border-radius: var(--cc-radius-sm);
+  padding: 4px 8px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+
+/* =========================================================================
+   SEARCH NARRATIVE PANEL
+   ========================================================================= */
+.cc-search-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cc-panel-inset);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--cc-radius-sm);
+  padding: 7px 10px;
+}
+.cc-search-box svg {
+  color: var(--cc-text-faint);
+  flex-shrink: 0;
+}
+.cc-search-box input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--cc-text);
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+}
+.cc-search-box input::placeholder {
+  color: var(--cc-text-faint);
+}
+.cc-search-results {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.cc-search-result-row {
+  font-size: 11px;
+  color: var(--cc-text-dim);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-bottom: 6px;
+}
+.cc-search-result-row b {
+  color: var(--cc-cyan);
+}
+.cc-search-empty {
+  font-size: 11px;
+  color: var(--cc-text-faint);
+  text-align: center;
+  padding: 14px 0;
+}
+
+/* =========================================================================
+   MAP PANEL — CrimeMapping.jsx nested inside a dashboard panel
+   ========================================================================= */
+.cc-map-panel .cc-panel-body {
+  padding: 0;
+}
+
+.cc-map-panel-inner {
+  height: 380px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shrink CrimeMapping's own page chrome so it behaves like an embedded
+   widget instead of a full standalone page. We only touch layout/sizing —
+   every control, legend, tab and filter it renders stays functional. */
+.cc-map-panel-inner .crmap-wrapper {
+  padding: 8px;
+  gap: 8px;
+  height: 100%;
+  background: transparent;
+}
+.cc-map-panel-inner .crmap-header {
+  display: none; /* dashboard panel header already shows the title */
+}
+.cc-map-panel-inner .crmap-stat-pills {
+  display: none;
+}
+.cc-map-panel-inner .crmap-map-wrap {
+  height: 100%;
+  min-height: 0;
+  border-color: var(--cc-border);
+}
+.cc-map-panel-inner .crmap-filterbar {
+  padding: 8px 10px;
+  border-left-color: var(--cc-cyan);
+}
+.cc-map-panel-inner .crmap-sidebar {
+  width: 220px;
+}
+
+/* =========================================================================
+   DETAILED CRIME / BLOTTER TABLE — full-width bottom panel
+   ========================================================================= */
+.cc-blotter-table-wrap {
+  overflow-x: auto;
+}
+.cc-blotter-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+.cc-blotter-table thead tr {
+  background: var(--cc-panel-3);
+  color: var(--cc-cyan);
+}
+.cc-blotter-table th {
+  padding: 7px 10px;
+  text-align: left;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cc-blotter-table td {
+  padding: 6px 10px;
+  color: var(--cc-text-dim);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+.cc-blotter-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+.cc-blotter-crime-cell {
+  color: var(--cc-magenta);
+  font-weight: 600;
+}
+.cc-blotter-empty {
+  text-align: center;
+  padding: 24px;
+  color: var(--cc-text-faint);
+  font-size: 12px;
+}
+
+/* =========================================================================
+   AI SECTION — keep readable on dark bg without altering its structure
+   ========================================================================= */
+.cc-shell .cd-ai-generate-wrap,
+.cc-shell .cd-ai-card {
+  background: var(--cc-panel);
+  border: 1px solid var(--cc-border);
+}
+.cc-shell .cd-ai-card-header h3,
+.cc-shell .cd-ai-block h4,
+.cc-shell .cd-ai-crime-block h4 {
+  color: var(--cc-text);
+}
+.cc-shell .cd-ai-card-header p,
+.cc-shell .cd-ai-helper-text,
+.cc-shell .cd-ai-block p,
+.cc-shell .cd-ai-quad-item p {
+  color: var(--cc-text-dim);
+}
+.cc-shell .cd-ai-stat-box {
+  background: var(--cc-panel-inset);
+  border-color: var(--cc-border);
+}
+.cc-shell .cd-ai-stat-box strong {
+  color: var(--cc-text);
+}
+.cc-shell .cd-ai-crime-block {
+  border-color: rgba(255, 255, 255, 0.1);
+}

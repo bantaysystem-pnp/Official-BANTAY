@@ -47,7 +47,7 @@ export const navItems = [
       },
     ],
   },
-  
+
   {
     section: "Users",
     items: [
@@ -71,6 +71,4 @@ export const navItems = [
       },
     ],
   },
-  // Add after the "Users" section:
-  
 ];

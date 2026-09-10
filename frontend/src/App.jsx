@@ -18,6 +18,7 @@ import VerificationSuccess from "./components/views/VerificationSucess";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PageLayout from "./components/layout/PageLayout.jsx";
 import AuditLog from "./components/views/AuditLog";
+import Overview from "./components/views/Overview";
 
 
 
@@ -29,6 +30,19 @@ function App() {
         <Route path="/login" element={<LoginSystem />} />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/verification-success" element={<VerificationSuccess />} />
+
+        {/* Full-screen Overview — deliberately OUTSIDE <PageLayout> so the
+            Sidebar and TopBar never mount for this route. Still protected
+            by the same auth check as everything else. */}
+        <Route
+          path="/overview"
+          element={
+            <ProtectedRoute>
+              <Overview />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Protected Layout */}
         <Route
           element={

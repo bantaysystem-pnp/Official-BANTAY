@@ -10,6 +10,7 @@ export const roleAccess = {
   // ============================================
 
   "Technical Administrator": [
+    "overview",
     "dashboard",
     "crime-analytics",
     "e-blotter",
@@ -21,8 +22,9 @@ export const roleAccess = {
     "audit-log",
     "profile-settings",
   ],
-  
+
   "Administrator": [
+    "overview",
     "dashboard",
     "crime-analytics",
     "e-blotter",
@@ -35,6 +37,7 @@ export const roleAccess = {
   ],
 
   "Investigator": [
+    "overview",
     "dashboard",
     "crime-analytics",
     "e-blotter",
@@ -47,6 +50,7 @@ export const roleAccess = {
   ],
 
   "Patrol": [
+    "overview",
     "dashboard",
     "crime-mapping",
     "e-blotter",

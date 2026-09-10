@@ -783,7 +783,7 @@ const BarangayMultiSelect = ({ selected, onChange }) => {
     </div>
   );
 };
-function CrimeMapping() {
+function CrimeMapping({ minimal = false, externalFilters = null, onFilterChange = null }) {
   const rawUser = localStorage.getItem("user");
   const currentUser = rawUser ? JSON.parse(rawUser) : null;
   const isBarangayUser = currentUser?.user_type === "barangay";
@@ -802,6 +802,14 @@ function CrimeMapping() {
   const [geoJSONData, setGeoJSONData] = useState(null);
 
   const [heatmapMode, setHeatmapMode] = useState(false);
+// Overview always opens in heatmap mode, regardless of whatever
+// mode was last active on a previous mount/navigation.
+useEffect(() => {
+  if (minimal) {
+    setHeatmapMode(true);
+  }
+}, [minimal]);
+
   const [heatGeoJSON, setHeatGeoJSON] = useState(null);
   const [clusterGeoJSON, setClusterGeoJSON] = useState(null);
   const [heatLoading, setHeatLoading] = useState(false);
@@ -847,26 +855,85 @@ function CrimeMapping() {
 
   // Single state
   // Single state
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState(() => {
+  if (minimal && externalFilters) {
+    return {
+      incident_types: externalFilters.incident_types ?? [],
+      date_from: externalFilters.date_from ?? defaultDateFrom,
+      date_to: externalFilters.date_to ?? defaultDateTo,
+      barangays:
+        isBarangayUser && userBarangay ? [userBarangay] : externalFilters.barangays ?? [],
+    };
+  }
+  return {
     incident_types: [],
     date_from: defaultDateFrom,
     date_to: defaultDateTo,
-    // Start with empty array for patrol - will be overridden after check
     barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
-  });
+  };
+});
 
-  const [appliedFilters, setAppliedFilters] = useState({
+const [appliedFilters, setAppliedFilters] = useState(() => {
+  if (minimal && externalFilters) {
+    return {
+      incident_types: externalFilters.incident_types ?? [],
+      date_from: externalFilters.date_from ?? defaultDateFrom,
+      date_to: externalFilters.date_to ?? defaultDateTo,
+      barangays:
+        isBarangayUser && userBarangay ? [userBarangay] : externalFilters.barangays ?? [],
+    };
+  }
+  return {
     incident_types: [],
     date_from: defaultDateFrom,
     date_to: defaultDateTo,
     barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
-  });
+  };
+});
 
-  // Fetch trigger — only runs when this ref changes
-  const [fetchTrigger, setFetchTrigger] = useState(0);
+// Fetch trigger — only runs when this ref changes
+const [fetchTrigger, setFetchTrigger] = useState(0);
+
+// ── Keep in sync with the parent's (Overview) filters when embedded ──
+const appliedFiltersRef = useRef(appliedFilters);
+useEffect(() => {
+  appliedFiltersRef.current = appliedFilters;
+}, [appliedFilters]);
+
+const externalFiltersKey = minimal && externalFilters ? JSON.stringify(externalFilters) : null;
+const didInitFromExternalRef = useRef(false);
+
+useEffect(() => {
+  if (!minimal || !externalFilters) return;
+
+  if (!didInitFromExternalRef.current) {
+    didInitFromExternalRef.current = true; // initial values already set above
+    return;
+  }
+
+  const lockedBarangays =
+    isPatrol && hasPatrolAssignment
+      ? patrolAssignedBarangays
+      : isBarangayUser && userBarangay
+        ? [userBarangay]
+        : externalFilters.barangays ?? [];
+
+  const next = {
+    incident_types: externalFilters.incident_types ?? [],
+    date_from: externalFilters.date_from ?? defaultDateFrom,
+    date_to: externalFilters.date_to ?? defaultDateTo,
+    barangays: lockedBarangays,
+  };
+
+  if (JSON.stringify(next) === JSON.stringify(appliedFiltersRef.current)) return;
+
+  setFilters(next);
+  setAppliedFilters(next);
+  setFetchTrigger((t) => t + 1);
+}, [externalFiltersKey, isPatrol, hasPatrolAssignment, isBarangayUser, userBarangay]);
 
   const [activeTab, setActiveTab] = useState("legend");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(!minimal);
   const [showMorePopup, setShowMorePopup] = useState(false);
   const [hoveredBarangay, setHoveredBarangay] = useState(null);
   const [showBrgyTooltip, setShowBrgyTooltip] = useState(true);
@@ -1602,12 +1669,20 @@ function CrimeMapping() {
             </svg>
           </div>
 
-          <CrimeTypeMultiSelect
-            selected={filters.incident_types}
-            onChange={(val) =>
-              setFilters((f) => ({ ...f, incident_types: val }))
-            }
-          />
+         <CrimeTypeMultiSelect
+  selected={filters.incident_types}
+  onChange={(val) => {
+    if (minimal) {
+      const next = { ...appliedFilters, incident_types: val };
+      setFilters(next);
+      setAppliedFilters(next);
+      setFetchTrigger((t) => t + 1);
+      onFilterChange?.({ crimeTypes: val });
+    } else {
+      setFilters((f) => ({ ...f, incident_types: val }));
+    }
+  }}
+/>
 
           {isPatrol && hasPatrolAssignment ? (
             <div className="crmap-fsel crmap-fsel-locked">
@@ -1625,12 +1700,23 @@ function CrimeMapping() {
               <span className="crmap-locked-icon"></span>
             </div>
           ) : (
-            <BarangayMultiSelect
-              selected={filters.barangays}
-              onChange={(val) => setFilters((f) => ({ ...f, barangays: val }))}
-            />
-          )}
-
+  <BarangayMultiSelect
+    selected={filters.barangays}
+    onChange={(val) => {
+      if (minimal) {
+        const next = { ...appliedFilters, barangays: val };
+        setFilters(next);
+        setAppliedFilters(next);
+        setFetchTrigger((t) => t + 1);
+        onFilterChange?.({ barangays: val });
+      } else {
+        setFilters((f) => ({ ...f, barangays: val }));
+      }
+    }}
+  />
+)}
+{!minimal && (
+  <>
           <div className="crmap-date-range">
             <input
               type="date"
@@ -1767,8 +1853,11 @@ function CrimeMapping() {
           >
             ↺
           </button>
+           </>
+)}
         </div>
       </div>
+      
 
       <div className="crmap-body">
         <div className="crmap-map-wrap">
@@ -1842,9 +1931,9 @@ function CrimeMapping() {
               initialViewState={{
                 longitude: 120.964,
                 latitude: 14.4341,
-                zoom: 12,
+                zoom: minimal ? 11 : 12,
               }}
-              minZoom={11.5}
+              minZoom={minimal ? 11 : 11.5}
               maxZoom={18}
               style={{ width: "100%", height: "100%" }}
               mapStyle={
@@ -2461,25 +2550,24 @@ function CrimeMapping() {
             {heatmapMode ? "Heatmap" : "Choropleth"}
           </button>
 
-          {!heatmapMode && zoom < 13 && (
-            <div className="crmap-zoom-hint">
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                <line x1="11" y1="8" x2="11" y2="14" />
-                <line x1="8" y1="11" x2="14" y2="11" />
-              </svg>
-              Zoom in to see individual crime pins
-            </div>
-          )}
-
+          {!minimal && !heatmapMode && zoom < 13 && (
+  <div className="crmap-zoom-hint">
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+    >
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      <line x1="11" y1="8" x2="11" y2="14" />
+      <line x1="8" y1="11" x2="14" y2="11" />
+    </svg>
+    Zoom in to see individual crime pins
+  </div>
+)}
           <button
             className="crmap-sidebar-toggle"
             onClick={() => setSidebarOpen((o) => !o)}

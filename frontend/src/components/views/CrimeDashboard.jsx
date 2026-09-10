@@ -1,6 +1,7 @@
 // frontend/src/components/views/CrimeDashboard.jsx
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -31,6 +32,8 @@ import LoadingModal from "../modals/LoadingModal";
 import { useExportDashboard } from "../../hooks/useExportDashboard";
 import ShortRangeWarningModal from "../modals/ShortRangeWarningModal";
 import PdfPreviewModal from "../modals/PdfPreviewModal";
+
+
 
 // ─── FEATURE FLAGS ────────────────────────────────────────────────────────────
 const SHOW_MONTHLY_DELTAS = false; // Set to false to hide all "vs last month" deltas
@@ -2712,6 +2715,7 @@ const isCacheValid = (filters) =>
 
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 const CrimeDashboard = () => {
+    const navigate = useNavigate();
   const rawUser = localStorage.getItem("user");
   const currentUser = rawUser ? JSON.parse(rawUser) : null;
   const isBarangayUser = currentUser?.user_type === "barangay";
@@ -3103,62 +3107,61 @@ const handleGenerateAssessment = () => {
       />
 
       <div className="cd-page-header">
-        <div className="cd-page-header-left">
-          <h1>Crime Dashboard</h1>
-          <p>
-            Index Crime Statistics &nbsp;·&nbsp;
-            <span className="cd-date-range-label">
-              {fmtDate(appliedFilters.dateFrom)} —{" "}
-              {fmtDate(appliedFilters.dateTo)}
-            </span>
-          </p>
-        </div>
-        {!isBarangayUser && (
-          <button
-            className="cd-export-btn"
-            onClick={exportDoc}
-            disabled={isExporting || isLoading}
-          >
-            {isExporting ? (
-              <>
-                {/* <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="psch-btn-icon psch-spin"
-                >
-                  <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                </svg> */}
-                Exporting…
-              </>
-            ) : (
-              <>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="psch-btn-icon"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="7 10 12 15 17 10" />
-                  <line x1="12" y1="15" x2="12" y2="3" />
-                </svg>
-                Export PDF
-              </>
-            )}
-          </button>
-        )}
-      </div>
+  <div className="cd-page-header-left">
+    <h1>Crime Dashboard</h1>
+    <p>
+      Index Crime Statistics &nbsp;·&nbsp;
+      <span className="cd-date-range-label">
+        {fmtDate(appliedFilters.dateFrom)} — {fmtDate(appliedFilters.dateTo)}
+      </span>
+    </p>
+  </div>
+
+  <div style={{ display: "flex", gap: 8 }}>
+    
+    <button
+  className="cd-export-btn"
+  onClick={() =>
+    navigate("/overview", {
+      state: { filters: appliedFilters },
+    })
+  }
+>
+  Overview
+</button>
+
+    {!isBarangayUser && (
+  <button
+    className="cd-export-btn"
+    onClick={exportDoc}
+    disabled={isExporting || isLoading}
+  >
+    {isExporting ? (
+      <>Exporting…</>
+    ) : (
+      <>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="psch-btn-icon"
+        >
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+        Export PDF
+      </>
+    )}
+  </button>
+)}
+  </div>
+</div>
 
             <FilterBar
         appliedFilters={appliedFilters}

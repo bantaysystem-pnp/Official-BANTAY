@@ -659,11 +659,6 @@ const BarangayMultiSelect = ({ selected, onChange }) => {
 const FilterBar = ({
   appliedFilters,
   onApply,
-  isBarangayUser = false,
-  userBarangay = null,
-  isPatrol = false,
-  hasPatrolAssignment = false,
-  patrolAssignedBarangays = [],
   mobileUnitOptions = [],
 }) => {
   const [expanded, setExpanded] = useState(true);
@@ -716,16 +711,7 @@ const FilterBar = ({
 
   const handleReset = () => {
     setDateError("");
-    const base = BLANK_FILTERS();
-    if (isBarangayUser && userBarangay) {
-      base.barangays = [userBarangay];
-    }
-    // For patrol users with active assignment, restrict to their barangays
-    if (isPatrol && hasPatrolAssignment && patrolAssignedBarangays.length > 0) {
-      base.barangays = patrolAssignedBarangays;
-    }
-    // For patrol users without assignment, base.barangays stays empty (all barangays)
-    onApply(base);
+    onApply(BLANK_FILTERS());
   };
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(appliedFilters);
@@ -833,37 +819,10 @@ const FilterBar = ({
 
             <div className="cd-filter-group">
               <label>Barangay</label>
-              {isPatrol && hasPatrolAssignment ? (
-                <div
-                  className="crmap-fsel crmap-fsel-locked"
-                  style={{ width: "100%", boxSizing: "border-box" }}
-                >
-                  {patrolAssignedBarangays.length === 1
-                    ? formatBarangayLabel(patrolAssignedBarangays[0])
-                    : `${patrolAssignedBarangays.length} Assigned Barangays`}
-                  <span
-                    className="crmap-locked-icon"
-                    title="Auto-filtered to your patrol assignment"
-                  ></span>
-                </div>
-              ) : isBarangayUser && userBarangay ? (
-                <div className="crmap-fsel crmap-fsel-locked">
-                  <span className="crmap-locked-value">
-                    {formatBarangayLabel(userBarangay)}
-                  </span>
-                  <span
-                    className="crmap-locked-icon"
-                    title="Auto-filtered to your assigned barangay"
-                  ></span>
-                </div>
-              ) : (
-                <BarangayMultiSelect
-                  selected={draft.barangays}
-                  onChange={(val) =>
-                    setDraft((f) => ({ ...f, barangays: val }))
-                  }
-                />
-              )}
+              <BarangayMultiSelect
+                selected={draft.barangays}
+                onChange={(val) => setDraft((f) => ({ ...f, barangays: val }))}
+              />
             </div>
 
                         <div className="cd-filter-group">
@@ -2716,37 +2675,11 @@ const isCacheValid = (filters) =>
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 const CrimeDashboard = () => {
     const navigate = useNavigate();
-  const rawUser = localStorage.getItem("user");
-  const currentUser = rawUser ? JSON.parse(rawUser) : null;
-  const isBarangayUser = currentUser?.user_type === "barangay";
-  const isPatrol =
-    currentUser?.role_name === "Patrol" || currentUser?.role === "Patrol";
-  const userBarangay = currentUser?.assigned_barangay_code ?? null;
-
   const role = localStorage.getItem("role");
   const isAdmin =
     role === "Administrator" || role === "Technical Administrator";
 
-  const [hasPatrolAssignment, setHasPatrolAssignment] = useState(false);
-  const [patrolAssignedBarangays, setPatrolAssignedBarangays] = useState([]);
-
-  const BLANK_FILTERS_FOR_USER = () => {
-    const base = BLANK_FILTERS();
-    // Only apply automatic barangay restriction if:
-    // 1. It's a patrol user WITH an ongoing assignment, OR
-    // 2. It's a barangay user
-    if (isPatrol && hasPatrolAssignment && patrolAssignedBarangays.length > 0) {
-      base.barangays = patrolAssignedBarangays;
-    } else if (isBarangayUser && userBarangay) {
-      base.barangays = [userBarangay];
-    }
-    // For patrol users without assignment, keep barangays as empty array (all barangays)
-    return base;
-  };
-
-  const [appliedFilters, setAppliedFilters] = useState(() =>
-    BLANK_FILTERS_FOR_USER(),
-  );
+  const [appliedFilters, setAppliedFilters] = useState(() => BLANK_FILTERS());
 
   const [dashData, setDashData] = useState(() =>
     _cache ? _cache.data : EMPTY_DASHBOARD(),
@@ -2787,71 +2720,6 @@ const CrimeDashboard = () => {
   }, []);
 
   const fetchIdRef = useRef(0);
-
-  // Check patrol assignment on mount
-  // Check patrol assignment on mount
-  // Check patrol assignment on mount
-  useEffect(() => {
-    if (!isPatrol) return;
-
-    const checkPatrolAssignment = async () => {
-      try {
-        const token = getToken();
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/patrol/my-patrols`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        const data = await res.json();
-
-        if (data.success) {
-          const today = new Date().toISOString().split("T")[0];
-          const ongoingPatrol = data.data.find(
-            (p) => p.start_date <= today && p.end_date >= today,
-          );
-
-          if (ongoingPatrol) {
-            const barangays = [
-              ...new Set(
-                (ongoingPatrol.routes || [])
-                  .filter((r) => (r.stop_order || 0) <= 0 && r.barangay)
-                  .map((r) => r.barangay),
-              ),
-            ];
-
-            setHasPatrolAssignment(true);
-            setPatrolAssignedBarangays(barangays);
-
-            // Update filters with patrol barangays and re-fetch
-            const updatedFilters = {
-              ...BLANK_FILTERS(),
-              barangays,
-            };
-            setAppliedFilters(updatedFilters);
-            fetchOverview(updatedFilters, true);
-          } else {
-            // NO ongoing patrol - use default filters (all barangays)
-            setHasPatrolAssignment(false);
-            setPatrolAssignedBarangays([]);
-
-            // Fetch with default filters (no barangay restriction)
-            const defaultFilters = BLANK_FILTERS();
-            setAppliedFilters(defaultFilters);
-            fetchOverview(defaultFilters, true);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to check patrol assignment:", err);
-        // On error, still fetch with default filters
-        const defaultFilters = BLANK_FILTERS();
-        setAppliedFilters(defaultFilters);
-        fetchOverview(defaultFilters, true);
-      }
-    };
-
-    checkPatrolAssignment();
-  }, [isPatrol]);
 
   const refCaseStatus = useRef(null);
   const refTrends = useRef(null);
@@ -2936,11 +2804,7 @@ const CrimeDashboard = () => {
   };
 
   useEffect(() => {
-    // For patrol users, the patrol check useEffect handles the initial fetch
-    // For non-patrol users (Admin, Barangay, Investigator), fetch here
-    if (isPatrol) return;
-
-    const defaults = BLANK_FILTERS_FOR_USER();
+    const defaults = BLANK_FILTERS();
 
     if (isCacheValid(defaults)) {
       setDashData(_cache.data);
@@ -2948,7 +2812,7 @@ const CrimeDashboard = () => {
     } else {
       fetchOverview(defaults);
     }
-  }, [isPatrol]);
+  }, []);
 
   useEffect(() => {
     if (errorMessage) {
@@ -2970,13 +2834,6 @@ const CrimeDashboard = () => {
   };
 
   const handleApply = (newFilters) => {
-    // Only override barangays if patrol user HAS an active assignment
-    if (isPatrol && hasPatrolAssignment && patrolAssignedBarangays.length > 0) {
-      newFilters.barangays = patrolAssignedBarangays;
-    } else if (isBarangayUser && userBarangay) {
-      newFilters.barangays = [userBarangay];
-    }
-    // For patrol users without assignment, respect their manual selection
     setAssessment(null);
     setBarangayForecast(null);
     setAppliedFilters(newFilters);
@@ -3130,7 +2987,6 @@ const handleGenerateAssessment = () => {
   Overview
 </button>
 
-    {!isBarangayUser && (
   <button
     className="cd-export-btn"
     onClick={exportDoc}
@@ -3159,18 +3015,12 @@ const handleGenerateAssessment = () => {
       </>
     )}
   </button>
-)}
   </div>
 </div>
 
             <FilterBar
         appliedFilters={appliedFilters}
         onApply={handleApply}
-        isBarangayUser={isBarangayUser}
-        userBarangay={userBarangay}
-        isPatrol={isPatrol}
-        hasPatrolAssignment={hasPatrolAssignment}
-        patrolAssignedBarangays={patrolAssignedBarangays}
         mobileUnitOptions={mobileUnitOptions}
       />
 
@@ -3218,11 +3068,9 @@ const handleGenerateAssessment = () => {
         <div ref={chartRefs.place}>
           <PlaceOfCommission data={dashData.place} />
         </div>
-        {!isBarangayUser && (
-          <div ref={chartRefs.barangay}>
-            <BarangayTable data={dashData.barangay} />
-          </div>
-        )}
+        <div ref={chartRefs.barangay}>
+          <BarangayTable data={dashData.barangay} />
+        </div>
       </div>
 
       <div

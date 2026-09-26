@@ -14,9 +14,7 @@ import LoadingModal from "../modals/LoadingModal";
 const API = `${import.meta.env.VITE_API_URL}/crime-map`;
 const getToken = () => localStorage.getItem("token");
 
-// ─── FEATURE FLAGS ────────────────────────────────────────────────────────
-// Set to false to hide the "Patrol" tab entirely and stop fetching/polling GPS
-const SHOW_PATROL_GPS = false;
+
 
 const INCIDENT_COLORS = {
   ROBBERY: "#ef4444",
@@ -923,16 +921,6 @@ function CrimeMapping({
   externalFilters = null,
   onFilterChange = null,
 }) {
-  const rawUser = localStorage.getItem("user");
-  const currentUser = rawUser ? JSON.parse(rawUser) : null;
-  const isBarangayUser = currentUser?.user_type === "barangay";
-  const isInvestigator =
-    currentUser?.role_name === "Investigator" ||
-    currentUser?.role === "Investigator";
-  const userBarangay = currentUser?.assigned_barangay_code ?? null;
-  const isPatrol =
-    currentUser?.role_name === "Patrol" || currentUser?.role === "Patrol";
-
   const [boundaries, setBoundaries] = useState([]);
   const [mobileUnitOptions, setMobileUnitOptions] = useState([]);
   const [mapReady, setMapReady] = useState(false);
@@ -954,20 +942,10 @@ function CrimeMapping({
   const [clusterGeoJSON, setClusterGeoJSON] = useState(null);
   const [heatLoading, setHeatLoading] = useState(false);
 
-  const [officers, setOfficers] = useState([]);
-  const [showOfficers, setShowOfficers] = useState(true);
-  const [hoveredOfficer, setHoveredOfficer] = useState(null);
-  const officerPollRef = useRef(null);
-  const hoveredOfficerRef = useRef(false);
-
   const [loading, setLoading] = useState(true);
   const [selectedPin, setSelectedPin] = useState(null);
   const [zoom, setZoom] = useState(12);
   const [error, setError] = useState(null);
-
-  // Add this state:
-  const [hasPatrolAssignment, setHasPatrolAssignment] = useState(false);
-  const [patrolAssignedBarangays, setPatrolAssignedBarangays] = useState([]);
 
   const getPHTDate = (offsetDays = 0) => {
     const now = new Date();
@@ -1001,10 +979,7 @@ function CrimeMapping({
         incident_types: externalFilters.incident_types ?? [],
         date_from: externalFilters.date_from ?? defaultDateFrom,
         date_to: externalFilters.date_to ?? defaultDateTo,
-        barangays:
-          isBarangayUser && userBarangay
-            ? [userBarangay]
-            : (externalFilters.barangays ?? []),
+        barangays: externalFilters.barangays ?? [],
         mobileUnits: externalFilters.mobileUnits ?? [],
       };
     }
@@ -1012,7 +987,7 @@ function CrimeMapping({
       incident_types: [],
       date_from: defaultDateFrom,
       date_to: defaultDateTo,
-      barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
+      barangays: [],
       mobileUnits: [],
     };
   });
@@ -1023,10 +998,7 @@ function CrimeMapping({
         incident_types: externalFilters.incident_types ?? [],
         date_from: externalFilters.date_from ?? defaultDateFrom,
         date_to: externalFilters.date_to ?? defaultDateTo,
-        barangays:
-          isBarangayUser && userBarangay
-            ? [userBarangay]
-            : (externalFilters.barangays ?? []),
+        barangays: externalFilters.barangays ?? [],
         mobileUnits: externalFilters.mobileUnits ?? [],
       };
     }
@@ -1034,7 +1006,7 @@ function CrimeMapping({
       incident_types: [],
       date_from: defaultDateFrom,
       date_to: defaultDateTo,
-      barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
+      barangays: [],
       mobileUnits: [],
     };
   });
@@ -1060,18 +1032,11 @@ function CrimeMapping({
       return;
     }
 
-    const lockedBarangays =
-      isPatrol && hasPatrolAssignment
-        ? patrolAssignedBarangays
-        : isBarangayUser && userBarangay
-          ? [userBarangay]
-          : (externalFilters.barangays ?? []);
-
     const next = {
       incident_types: externalFilters.incident_types ?? [],
       date_from: externalFilters.date_from ?? defaultDateFrom,
       date_to: externalFilters.date_to ?? defaultDateTo,
-      barangays: lockedBarangays,
+      barangays: externalFilters.barangays ?? [],
       mobileUnits: externalFilters.mobileUnits ?? [],
     };
 
@@ -1081,13 +1046,7 @@ function CrimeMapping({
     setFilters(next);
     setAppliedFilters(next);
     setFetchTrigger((t) => t + 1);
-  }, [
-    externalFiltersKey,
-    isPatrol,
-    hasPatrolAssignment,
-    isBarangayUser,
-    userBarangay,
-  ]);
+  }, [externalFiltersKey]);
 
   const [activeTab, setActiveTab] = useState("legend");
   const [sidebarOpen, setSidebarOpen] = useState(!minimal);
@@ -1104,7 +1063,6 @@ function CrimeMapping({
     left: 0,
     type: "choropleth",
   });
-  const [patrolAssignmentLoading, setPatrolAssignmentLoading] = useState(true);
 
   const mapRef = useRef(null);
   const incidenceTooltipTimerRef = useRef(null);
@@ -1217,34 +1175,6 @@ function CrimeMapping({
       .catch((err) => console.warn("Failed to load mobile units:", err));
   }, []);
 
-  useEffect(() => {
-    if (!isBarangayUser || !userBarangay || !geoJSONData || !mapReady) {
-      return;
-    }
-
-    const feature = geoJSONData.features.find(
-      (f) => f.properties.name_db === userBarangay,
-    );
-
-    if (feature) {
-      const coords =
-        feature.geometry.type === "Polygon"
-          ? feature.geometry.coordinates[0]
-          : feature.geometry.coordinates[0][0];
-      const lngs = coords.map((c) => c[0]);
-      const lats = coords.map((c) => c[1]);
-
-      mapRef.current.flyTo({
-        center: [
-          (Math.min(...lngs) + Math.max(...lngs)) / 2,
-          (Math.min(...lats) + Math.max(...lats)) / 2,
-        ],
-        zoom: 15,
-        duration: 1200,
-      });
-    }
-  }, [geoJSONData, isBarangayUser, userBarangay, mapReady]); // ← added mapReady
-
   // REPLACE the entire fetchAll useCallback:
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -1332,74 +1262,15 @@ function CrimeMapping({
     }
   }, [appliedFilters]); // ← depends on appliedFilters directly
 
-  const fetchOfficers = useCallback(async () => {
-    if (!SHOW_PATROL_GPS || isBarangayUser || isInvestigator) return; // early exit still fine
-
-    try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/gps/officers`, {
-        // no ?platform param — web always shows all visible officers
-        headers: { Authorization: `Bearer ${getToken()}` },
-      });
-      const data = await res.json();
-      if (data.success) setOfficers(data.data);
-    } catch (err) {
-      console.warn("[Map] fetchOfficers error:", err.message);
-    }
-  }, [isBarangayUser]);
-
-  useEffect(() => {
-    if (!SHOW_PATROL_GPS) return;
-
-    fetchOfficers();
-
-    const startPoll = () => {
-      if (officerPollRef.current) clearInterval(officerPollRef.current);
-      officerPollRef.current = setInterval(fetchOfficers, 5000);
-    };
-
-    const stopPoll = () => {
-      if (officerPollRef.current) {
-        clearInterval(officerPollRef.current);
-        officerPollRef.current = null;
-      }
-    };
-
-    const onVisibility = () => {
-      if (document.hidden) {
-        stopPoll(); // nobody watching → stop completely
-      } else {
-        fetchOfficers(); // tab back → immediate refresh
-        startPoll(); // restart polling
-      }
-    };
-
-    document.addEventListener("visibilitychange", onVisibility);
-    startPoll();
-
-    return () => {
-      stopPoll(); // component unmounts (navigates away) → stop
-      document.removeEventListener("visibilitychange", onVisibility);
-    };
-  }, [fetchOfficers]);
-
-  // Fetch data on trigger or mode change — but wait for patrol assignment first
   // Fetch data on trigger or mode change
-  // Fetch data on trigger or mode change — but wait for patrol assignment first
-  // Fetch data on trigger or mode change
-  // Fetch data on trigger or mode change — wait for patrol assignment to load first
   useEffect(() => {
-    // For patrol users, wait for patrol status to be determined
-    if (isPatrol && patrolAssignmentLoading) {
-      return;
-    }
-
     if (heatmapMode) {
       fetchHeatmap();
       fetchAll();
     } else {
       fetchAll();
     }
-  }, [fetchTrigger, heatmapMode, isPatrol, patrolAssignmentLoading]);
+  }, [fetchTrigger, heatmapMode]);
 
   const handleModeToggle = useCallback(() => {
     setHeatmapMode((m) => !m);
@@ -1408,59 +1279,6 @@ function CrimeMapping({
 
   const buildGeoJSON = useCallback(() => {
     if (!geoJSONData) return null;
-
-    const selectedBarangay = appliedFilters.barangays?.[0];
-
-    // Patrol user with ongoing schedule → only show assigned barangays
-    if (isPatrol && hasPatrolAssignment && patrolAssignedBarangays.length > 0) {
-      return {
-        ...geoJSONData,
-        features: geoJSONData.features
-          .filter((f) => patrolAssignedBarangays.includes(f.properties.name_db))
-          .map((f) => {
-            const boundary = boundaries.find(
-              (b) => b.name_db === f.properties.name_db,
-            );
-            return {
-              ...f,
-              properties: {
-                ...f.properties,
-                fillColor: boundary?.color || "#ffffff",
-                isSelected: true,
-                isLocked: false,
-              },
-            };
-          }),
-      };
-    }
-
-    if (isBarangayUser && userBarangay) {
-      const ownFeature = geoJSONData.features.find(
-        (f) => f.properties.name_db === userBarangay,
-      );
-      if (!ownFeature) return null;
-
-      const colorLookup = {};
-      boundaries.forEach((b) => {
-        colorLookup[b.name_kml] = b.color;
-      });
-
-      return {
-        ...geoJSONData,
-        features: [
-          {
-            ...ownFeature,
-            properties: {
-              ...ownFeature.properties,
-              fillColor: heatmapMode
-                ? "rgba(255,255,255,0.0)"
-                : colorLookup[ownFeature.properties.name_kml] || "#ffffff",
-              isLocked: false,
-            },
-          },
-        ],
-      };
-    }
 
     if (heatmapMode) {
       return {
@@ -1508,77 +1326,11 @@ function CrimeMapping({
         };
       }),
     };
-  }, [
-    boundaries,
-    geoJSONData,
-    heatmapMode,
-    isBarangayUser,
-    userBarangay,
-    appliedFilters,
-    isPatrol,
-    hasPatrolAssignment,
-    patrolAssignedBarangays,
-  ]);
+  }, [boundaries, geoJSONData, heatmapMode, appliedFilters]);
 
   const handleMapDblClick = useCallback(
     (e) => {
       if (!geoJSONData) return;
-
-      if (isBarangayUser && userBarangay) {
-        const { lng, lat } = e.lngLat;
-        const inside = (point, vs) => {
-          let x = point[0];
-          let y = point[1];
-          let isInside = false;
-
-          for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
-            const xi = vs[i][0];
-            const yi = vs[i][1];
-            const xj = vs[j][0];
-            const yj = vs[j][1];
-
-            if (
-              yi > y !== yj > y &&
-              x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
-            ) {
-              isInside = !isInside;
-            }
-          }
-          return isInside;
-        };
-
-        for (const feature of geoJSONData.features) {
-          if (feature.properties.name_db !== userBarangay) continue;
-
-          const geom = feature.geometry;
-          const rings =
-            geom.type === "Polygon"
-              ? [geom.coordinates[0]]
-              : geom.coordinates.map((p) => p[0]);
-
-          for (const ring of rings) {
-            if (inside([lng, lat], ring)) {
-              const allCoords =
-                geom.type === "Polygon"
-                  ? geom.coordinates[0]
-                  : geom.coordinates.flat(1);
-              const lngs = allCoords.map((c) => c[0]);
-              const lats = allCoords.map((c) => c[1]);
-
-              mapRef.current?.flyTo({
-                center: [
-                  (Math.min(...lngs) + Math.max(...lngs)) / 2,
-                  (Math.min(...lats) + Math.max(...lats)) / 2,
-                ],
-                zoom: 15,
-                duration: 1000,
-              });
-              return;
-            }
-          }
-        }
-        return;
-      }
 
       const { lng, lat } = e.lngLat;
       const inside = (point, vs) => {
@@ -1631,7 +1383,7 @@ function CrimeMapping({
         }
       }
     },
-    [geoJSONData, isBarangayUser, userBarangay],
+    [geoJSONData],
   );
 
   const geoJSON = buildGeoJSON();
@@ -1687,97 +1439,8 @@ function CrimeMapping({
   const sidebarTabs = [
     { key: "legend", label: "Legend" },
     { key: "recent", label: "Recent" },
-    ...(!isBarangayUser
-      ? [{ key: "at_risk", label: heatmapMode ? "Clusters" : "Incidence" }]
-      : []),
-    ...(SHOW_PATROL_GPS && !isBarangayUser && !isInvestigator
-      ? [{ key: "officers", label: "Patrol" }]
-      : []),
+    { key: "at_risk", label: heatmapMode ? "Clusters" : "Incidence" },
   ];
-
-  // ADD this useEffect to check patrol assignment on mount:
-  // ADD this useEffect to check patrol assignment on mount:
-  useEffect(() => {
-    if (!isPatrol) {
-      setPatrolAssignmentLoading(false);
-      return;
-    }
-
-    const checkPatrolAssignment = async () => {
-      try {
-        const token = getToken();
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/patrol/my-patrols`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        const data = await res.json();
-
-        if (data.success) {
-          const today = new Date().toISOString().split("T")[0];
-          const ongoingPatrol = data.data.find(
-            (p) => p.start_date <= today && p.end_date >= today,
-          );
-
-          if (ongoingPatrol) {
-            // ✅ HAS schedule - extract barangays from routes
-            const assignedBarangays = [
-              ...new Set(
-                (ongoingPatrol.routes || [])
-                  .filter((r) => (r.stop_order || 0) <= 0 && r.barangay)
-                  .map((r) => r.barangay),
-              ),
-            ];
-            setHasPatrolAssignment(true);
-            setPatrolAssignedBarangays(assignedBarangays);
-
-            // Auto-set barangay filter for patrol user
-            setFilters((prev) => ({ ...prev, barangays: assignedBarangays }));
-            setAppliedFilters((prev) => ({
-              ...prev,
-              barangays: assignedBarangays,
-            }));
-
-            // Trigger data fetch with new barangay filter
-            setFetchTrigger((t) => t + 1);
-          } else {
-            // ✅ NO schedule - show all data like admin
-            setHasPatrolAssignment(false);
-            setPatrolAssignedBarangays([]);
-
-            // Clear any barangay filters to show all data
-            setFilters((prev) => ({ ...prev, barangays: [] }));
-            setAppliedFilters((prev) => ({ ...prev, barangays: [] }));
-            setFetchTrigger((t) => t + 1);
-          }
-        }
-      } catch (err) {
-        console.warn("Failed to check patrol assignment:", err);
-        // On error, show all data with no restrictions
-        setHasPatrolAssignment(false);
-        setPatrolAssignedBarangays([]);
-        setFetchTrigger((t) => t + 1);
-      } finally {
-        setPatrolAssignmentLoading(false);
-      }
-    };
-
-    checkPatrolAssignment();
-  }, [isPatrol]);
-
-  // AND add this effect to auto-reset active tab if user lands on a hidden tab:
-  useEffect(() => {
-    if (isBarangayUser && activeTab === "at_risk") {
-      setActiveTab("legend");
-    }
-    if (
-      (isBarangayUser || isInvestigator || !SHOW_PATROL_GPS) &&
-      activeTab === "officers"
-    ) {
-      setActiveTab("legend");
-    }
-  }, [isBarangayUser, isInvestigator, activeTab]);
 
   return (
     <div className="crmap-wrapper">
@@ -1794,24 +1457,22 @@ function CrimeMapping({
         <div className="crmap-stat-pills">
           {[
             { val: stats?.total_pins ?? "—", lbl: "Total Pins" },
-            !isBarangayUser
-              ? heatmapMode
-                ? { val: clusterCount, lbl: "Clusters Found" }
-                : {
-                    val: (() => {
-                      if (appliedFilters.barangays?.length > 0) {
-                        const affected = boundaries.filter(
-                          (b) =>
-                            appliedFilters.barangays.includes(b.name_db) &&
-                            b.crime_count > 0,
-                        ).length;
-                        return `${affected}/${appliedFilters.barangays.length}`;
-                      }
-                      return `${boundaries.filter((b) => b.crime_count > 0).length}/${totalBarangays}`;
-                    })(),
-                    lbl: "Brgy. Affected",
-                  }
-              : null,
+            heatmapMode
+              ? { val: clusterCount, lbl: "Clusters Found" }
+              : {
+                  val: (() => {
+                    if (appliedFilters.barangays?.length > 0) {
+                      const affected = boundaries.filter(
+                        (b) =>
+                          appliedFilters.barangays.includes(b.name_db) &&
+                          b.crime_count > 0,
+                      ).length;
+                      return `${affected}/${appliedFilters.barangays.length}`;
+                    }
+                    return `${boundaries.filter((b) => b.crime_count > 0).length}/${totalBarangays}`;
+                  })(),
+                  lbl: "Brgy. Affected",
+                },
             {
               val: (() => {
                 const days =
@@ -1859,37 +1520,20 @@ function CrimeMapping({
 
           <div className="crmap-filter-group">
             <label className="crmap-filter-label">Barangay</label>
-            {isPatrol && hasPatrolAssignment ? (
-              <div className="crmap-fsel crmap-fsel-locked">
-                {patrolAssignedBarangays.length === 1
-                  ? formatBarangayLabel(patrolAssignedBarangays[0])
-                  : `${patrolAssignedBarangays.length} Assigned Barangays`}
-                <span
-                  className="crmap-locked-icon"
-                  title="Auto-filtered to your patrol assignment"
-                ></span>
-              </div>
-            ) : isBarangayUser && userBarangay ? (
-              <div className="crmap-fsel crmap-fsel-locked">
-                {formatBarangayLabel(userBarangay)}
-                <span className="crmap-locked-icon"></span>
-              </div>
-            ) : (
-              <BarangayMultiSelect
-                selected={filters.barangays}
-                onChange={(val) => {
-                  if (minimal) {
-                    const next = { ...appliedFilters, barangays: val };
-                    setFilters(next);
-                    setAppliedFilters(next);
-                    setFetchTrigger((t) => t + 1);
-                    onFilterChange?.({ barangays: val });
-                  } else {
-                    setFilters((f) => ({ ...f, barangays: val }));
-                  }
-                }}
-              />
-            )}
+            <BarangayMultiSelect
+              selected={filters.barangays}
+              onChange={(val) => {
+                if (minimal) {
+                  const next = { ...appliedFilters, barangays: val };
+                  setFilters(next);
+                  setAppliedFilters(next);
+                  setFetchTrigger((t) => t + 1);
+                  onFilterChange?.({ barangays: val });
+                } else {
+                  setFilters((f) => ({ ...f, barangays: val }));
+                }
+              }}
+            />
           </div>
           {!minimal && (
             <>
@@ -1970,16 +1614,10 @@ function CrimeMapping({
                     : ""
                 }`}
                 onClick={() => {
-                  // For patrol users, always use assigned barangays
-                  const filtersToApply =
-                    isPatrol && hasPatrolAssignment
-                      ? { ...filters, barangays: patrolAssignedBarangays }
-                      : filters;
-
-                  setAppliedFilters(filtersToApply);
+                  setAppliedFilters(filters);
                   setFetchTrigger((t) => t + 1);
 
-                  const selectedBarangays = filtersToApply.barangays;
+                  const selectedBarangays = filters.barangays;
                   if (selectedBarangays?.length > 0 && geoJSONData) {
                     const allCoords = [];
                     for (const brgy of selectedBarangays) {
@@ -2026,23 +1664,16 @@ function CrimeMapping({
                     incident_types: [],
                     date_from: clearFrom,
                     date_to: clearTo,
-                    barangays:
-                      isPatrol && hasPatrolAssignment
-                        ? patrolAssignedBarangays
-                        : isBarangayUser && userBarangay
-                          ? [userBarangay]
-                          : [],
+                    barangays: [],
                     mobileUnits: [],
                   };
                   setFilters(cleared);
                   setAppliedFilters(cleared);
-                  if (!isBarangayUser && !(isPatrol && hasPatrolAssignment)) {
-                    mapRef.current?.flyTo({
-                      center: [120.964, 14.4341],
-                      zoom: 12,
-                      duration: 800,
-                    });
-                  }
+                  mapRef.current?.flyTo({
+                    center: [120.964, 14.4341],
+                    zoom: 12,
+                    duration: 800,
+                  });
                   setFetchTrigger((t) => t + 1);
                 }}
               >
@@ -2147,7 +1778,6 @@ function CrimeMapping({
               onDblClick={handleMapDblClick}
               doubleClickZoom={false}
               onMouseMove={(e) => {
-                if (hoveredOfficerRef.current) return; // ← reads ref, always current value
                 if (heatmapMode) {
                   setHoveredBarangay(null);
                   return;
@@ -2164,12 +1794,6 @@ function CrimeMapping({
 
                 if (features.length > 0) {
                   const name = features[0].properties.name_db;
-
-                  if (isBarangayUser && userBarangay && name !== userBarangay) {
-                    e.target.getCanvas().style.cursor = "not-allowed";
-                    setHoveredBarangay(null);
-                    return;
-                  }
 
                   e.target.getCanvas().style.cursor = "pointer";
                   const boundary = boundaries.find((b) => b.name_db === name);
@@ -2376,107 +2000,24 @@ function CrimeMapping({
                         {showMorePopup ? "▲ View Less" : "▼ View More"}
                       </button>
 
-                      {!isBarangayUser && (
-                        <button
-                          className="crmap-popup-view-btn"
-                          onClick={() => {
-                            sessionStorage.setItem(
-                              "openBlotterId",
-                              selectedPin.blotter_id,
-                            );
-                            window.location.href = "/e-blotter";
-                          }}
-                        >
-                          View Full Case
-                        </button>
-                      )}
+                      <button
+                        className="crmap-popup-view-btn"
+                        onClick={() => {
+                          sessionStorage.setItem(
+                            "openBlotterId",
+                            selectedPin.blotter_id,
+                          );
+                          window.location.href = "/e-blotter";
+                        }}
+                      >
+                        View Full Case
+                      </button>
                     </div>
                   </div>
                 </Popup>
               )}
 
-              {showOfficers &&
-                officers.map((officer) => (
-                  <Marker
-                    key={`officer-${officer.user_id}`}
-                    longitude={parseFloat(officer.longitude)}
-                    latitude={parseFloat(officer.latitude)}
-                    anchor="bottom"
-                  >
-                    <div
-                      className="crmap-officer-marker"
-                      onMouseEnter={(e) => {
-                        hoveredOfficerRef.current = true; // ← sync, immediate
-                        const el = e.currentTarget;
-                        const rect = el.getBoundingClientRect();
-                        const mapRect = mapRef.current
-                          ?.getContainer()
-                          ?.getBoundingClientRect();
-                        if (!mapRect) return;
-                        setHoveredOfficer({
-                          officer,
-                          x: rect.left - mapRect.left + rect.width / 2,
-                          y: rect.top - mapRect.top,
-                        });
-                        setHoveredBarangay(null);
-                      }}
-                      onMouseLeave={() => {
-                        hoveredOfficerRef.current = false; // ← sync, immediate
-                        setHoveredOfficer(null);
-                      }}
-                    >
-                      <div className="crmap-officer-avatar">
-                        {officer.profile_picture ? (
-                          <img
-                            src={
-                              officer.profile_picture.startsWith("http")
-                                ? officer.profile_picture
-                                : `${import.meta.env.VITE_API_URL}${officer.profile_picture}`
-                            }
-                            alt={officer.full_name}
-                            className="crmap-officer-avatar-img"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                            }}
-                          />
-                        ) : (
-                          <span className="crmap-officer-avatar-initials">
-                            {(
-                              (officer.first_name?.[0] || "") +
-                              (officer.last_name?.[0] || "")
-                            ).toUpperCase() || "?"}
-                          </span>
-                        )}
-                      </div>
-                      <div className="crmap-officer-pulse" />
-                      <div className="crmap-officer-bubble-tail" />
-                    </div>
-                  </Marker>
-                ))}
             </Map>
-
-            {hoveredOfficer && (
-              <div
-                className="crmap-officer-tooltip"
-                style={{
-                  left: hoveredOfficer.x,
-                  top: hoveredOfficer.y,
-                }}
-              >
-                <div className="crmap-officer-tooltip-name">
-                  👮{" "}
-                  {`${hoveredOfficer.officer.abbreviation ?? ""}. ${hoveredOfficer.officer.first_name ?? ""} ${hoveredOfficer.officer.last_name ?? ""}`.trim() ||
-                    hoveredOfficer.officer.username ||
-                    "Officer"}
-                </div>
-                {/* <div className="crmap-officer-tooltip-detail">
-                  {hoveredOfficer.officer.abbreviation ||
-                    hoveredOfficer.officer.role_name ||
-                    "PNP"}{" "}
-                  · Online
-                </div> */}
-              </div>
-            )}
 
             {showBrgyTooltip && hoveredBarangay && (
               <div
@@ -2553,31 +2094,6 @@ function CrimeMapping({
               className="crmap-ctrl-btn"
               title="Reset view"
               onClick={() => {
-                if (isBarangayUser && userBarangay && geoJSONData) {
-                  const feature = geoJSONData.features.find(
-                    (f) => f.properties.name_db === userBarangay,
-                  );
-
-                  if (feature) {
-                    const coords =
-                      feature.geometry.type === "Polygon"
-                        ? feature.geometry.coordinates[0]
-                        : feature.geometry.coordinates[0][0];
-                    const lngs = coords.map((c) => c[0]);
-                    const lats = coords.map((c) => c[1]);
-
-                    mapRef.current?.flyTo({
-                      center: [
-                        (Math.min(...lngs) + Math.max(...lngs)) / 2,
-                        (Math.min(...lats) + Math.max(...lats)) / 2,
-                      ],
-                      zoom: 15,
-                      duration: 800,
-                    });
-                    return;
-                  }
-                }
-
                 mapRef.current?.flyTo({
                   center: [120.964, 14.4341],
                   zoom: 12,
@@ -2645,20 +2161,6 @@ function CrimeMapping({
               {showMapOptions && (
                 <div className="crmap-options-popover">
                   <div className="crmap-options-title">Map Options</div>
-
-                  {!isBarangayUser && !isInvestigator && (
-                    <div className="crmap-map-option">
-                      <span className="crmap-map-option-lbl">
-                        Officer Locations
-                      </span>
-                      <button
-                        className={`crmap-toggle ${showOfficers ? "on" : ""}`}
-                        onClick={() => setShowOfficers((v) => !v)}
-                      >
-                        <span className="crmap-toggle-knob" />
-                      </button>
-                    </div>
-                  )}
 
                   {heatmapMode ? (
                     <>
@@ -3279,170 +2781,6 @@ function CrimeMapping({
                         </div>
                       );
                     })()
-                  )}
-                </div>
-              )}
-
-              {activeTab === "officers" && (
-                <div className="crmap-panel-section">
-                  {officers.length === 0 ? (
-                    <div className="crmap-empty">
-                      No officers currently online.
-                    </div>
-                  ) : (
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 8,
-                      }}
-                    >
-                      {officers.map((officer) => (
-                        <div
-                          key={officer.user_id}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 10,
-                            padding: "8px 10px",
-                            background: "rgba(29,78,216,0.04)",
-                            borderRadius: 6,
-                            border: "1px solid rgba(29,78,216,0.15)",
-                            borderLeft: "3px solid #1d4ed8",
-                            cursor: "pointer",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background =
-                              "rgba(29,78,216,0.10)")
-                          }
-                          onMouseLeave={(e) =>
-                            (e.currentTarget.style.background =
-                              "rgba(29,78,216,0.04)")
-                          }
-                          onClick={() => {
-                            mapRef.current?.flyTo({
-                              center: [
-                                parseFloat(officer.longitude),
-                                parseFloat(officer.latitude),
-                              ],
-                              zoom: 16,
-                              duration: 800,
-                            });
-                          }}
-                        >
-                          {/* Avatar */}
-                          <div
-                            style={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: "50%",
-                              border: "2px solid #1d4ed8",
-                              background: "#dbeafe",
-                              overflow: "hidden",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {officer.profile_picture ? (
-                              <img
-                                src={officer.profile_picture}
-                                alt={officer.full_name}
-                                style={{
-                                  width: "100%",
-                                  height: "100%",
-                                  objectFit: "cover",
-                                  borderRadius: "50%",
-                                }}
-                              />
-                            ) : (
-                              <span
-                                style={{
-                                  fontSize: 12,
-                                  fontWeight: 700,
-                                  color: "#1d4ed8",
-                                  userSelect: "none",
-                                  letterSpacing: "0.3px",
-                                }}
-                              >
-                                {officer.initials || "??"}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Info */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: "#111",
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                            >
-                              {officer.abbreviation
-                                ? `${officer.abbreviation}. ${officer.first_name || ""} ${officer.last_name || ""}`.trim()
-                                : `${officer.first_name || ""} ${officer.last_name || ""}`.trim() ||
-                                  officer.username}
-                            </div>
-                            <div
-                              style={{
-                                fontSize: 10,
-                                color: "#6b7280",
-                                marginTop: 2,
-                              }}
-                            >
-                              {officer.role_name}
-                            </div>
-                          </div>
-
-                          {/* Online badge + seconds ago */}
-                          <div
-                            style={{
-                              display: "flex",
-                              flexDirection: "column",
-                              alignItems: "flex-end",
-                              gap: 3,
-                              flexShrink: 0,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                background: "rgba(34,197,94,0.12)",
-                                borderRadius: 10,
-                                padding: "2px 6px",
-                              }}
-                            >
-                              <div
-                                style={{
-                                  width: 6,
-                                  height: 6,
-                                  borderRadius: "50%",
-                                  background: "#22c55e",
-                                  flexShrink: 0,
-                                }}
-                              />
-                              <span
-                                style={{
-                                  fontSize: 9,
-                                  color: "#16a34a",
-                                  fontWeight: 600,
-                                }}
-                              >
-                                ONLINE
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
                   )}
                 </div>
               )}

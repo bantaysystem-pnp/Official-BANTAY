@@ -46,34 +46,6 @@ const FROM_JOIN = `FROM crime_reports_v2 cr
   LEFT JOIN cases_v2 c ON c.report_id = cr.report_id
   LEFT JOIN crime_modus_reference cmr ON cmr.id = cr.modus_reference_id`;
 
-// ============================================================
-// HELPER: Get assigned barangays for a patrol user's ongoing schedule
-// ============================================================
-const getPatrolUserBarangays = async (userId) => {
-  try {
-    const result = await pool.query(
-      `
-      SELECT DISTINCT par.barangay
-      FROM patrol_assignment pa
-      JOIN patrol_assignment_patroller pap ON pa.patrol_id = pap.patrol_id
-      JOIN active_patroller ap ON pap.active_patroller_id = ap.active_patroller_id
-      JOIN patrol_assignment_route par ON pa.patrol_id = par.patrol_id
-      WHERE ap.officer_id = $1
-        AND pa.start_date <= CURRENT_DATE 
-        AND pa.end_date >= CURRENT_DATE
-        AND par.stop_order <= 0
-        AND par.barangay IS NOT NULL
-    `,
-      [userId],
-    );
-
-    return result.rows.map((r) => r.barangay.toUpperCase());
-  } catch (error) {
-    console.error("getPatrolUserBarangays error:", error);
-    return [];
-  }
-};
-
 const getBoundaries = async (req, res) => {
   try {
     const { date_from, date_to } = req.query;
@@ -132,18 +104,6 @@ const getBoundaries = async (req, res) => {
         crimeQuery += ` AND cr.assigned_mobile_id = ANY($${p++}::int[])`;
         params.push(unitIds);
       }
-    }
-
-    // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
-    const { role_name, user_id } = req.user || {};
-    if (role_name === "Patrol") {
-      const assignedBarangays = await getPatrolUserBarangays(user_id);
-      // Only restrict if they have assigned barangays (ongoing schedule)
-      if (assignedBarangays.length > 0) {
-        crimeQuery += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
-        params.push(expandBarangays(assignedBarangays));
-      }
-      // If no assignedBarangays, don't add any filter - they see all data like admin
     }
 
     crimeQuery += ` GROUP BY UPPER(TRIM(cr.place_barangay))`;
@@ -272,31 +232,9 @@ const getPins = async (req, res) => {
       params.push(req.query.day);
     }
 
-    const { role_name, user_id } = req.user || {};
     const client = await pool.connect();
     let result;
     try {
-      if (role_name === "Barangay Official") {
-        const bdRes = await client.query(
-          `SELECT bd.barangay_code FROM barangay_details bd WHERE bd.user_id = $1`,
-          [user_id],
-        );
-        if (bdRes.rows.length > 0) {
-          query += ` AND UPPER(TRIM(cr.place_barangay)) = UPPER($${p++})`;
-          params.push(bdRes.rows[0].barangay_code);
-        }
-      }
-
-      if (role_name === "Patrol") {
-        const assignedBarangays = await getPatrolUserBarangays(user_id);
-        // Only restrict if they have assigned barangays (ongoing schedule)
-        if (assignedBarangays.length > 0) {
-          query += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
-          params.push(expandBarangays(assignedBarangays));
-        }
-        // If no assignedBarangays, don't add any filter - they see all data like admin
-      }
-
       query += ` ORDER BY cr.date_time_commission DESC`;
       result = await client.query(query, params);
     } finally {
@@ -400,18 +338,6 @@ const getStatistics = async (req, res) => {
         baseWhere += ` AND cr.assigned_mobile_id = ANY($${p++}::int[])`;
         params.push(unitIds);
       }
-    }
-
-    // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
-    const { role_name, user_id } = req.user || {};
-    if (role_name === "Patrol") {
-      const assignedBarangays = await getPatrolUserBarangays(user_id);
-      // Only restrict if they have assigned barangays (ongoing schedule)
-      if (assignedBarangays.length > 0) {
-        baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
-        params.push(assignedBarangays);
-      }
-      // If no assignedBarangays, don't add any filter - they see all data like admin
     }
 
     const incidenceMin = getIncidenceMinCount(
@@ -565,18 +491,6 @@ const getHeatmap = async (req, res) => {
       }
     }
 
-    // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
-    const { role_name, user_id } = req.user || {};
-    if (role_name === "Patrol") {
-      const assignedBarangays = await getPatrolUserBarangays(user_id);
-      // Only restrict if they have assigned barangays (ongoing schedule)
-      if (assignedBarangays.length > 0) {
-        baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
-        params.push(assignedBarangays);
-      }
-      // If no assignedBarangays, don't add any filter - they see all data like admin
-    }
-
     const pointsSQL = `
       SELECT
         cr.report_id AS blotter_id,
@@ -593,28 +507,7 @@ const getHeatmap = async (req, res) => {
     const client = await pool.connect();
     let pointsResult;
     try {
-      // Barangay Official override
-      if (role_name === "Barangay Official") {
-        const bdRes = await client.query(
-          `SELECT barangay_code FROM barangay_details WHERE user_id = $1`,
-          [user_id],
-        );
-        if (bdRes.rows.length > 0) {
-          // Rebuild with barangay official filter
-          const brgyCode = bdRes.rows[0].barangay_code.toUpperCase();
-          pointsResult = await client.query(
-            pointsSQL.replace(
-              /UPPER\(TRIM\(cr\.place_barangay\)\) = ANY\(\$\d+::text\[\]\)/,
-              `UPPER(TRIM(cr.place_barangay)) = UPPER($${params.length + 1})`,
-            ),
-            [...params, brgyCode],
-          );
-        } else {
-          pointsResult = await client.query(pointsSQL, params);
-        }
-      } else {
-        pointsResult = await client.query(pointsSQL, params);
-      }
+      pointsResult = await client.query(pointsSQL, params);
     } finally {
       client.release();
     }
@@ -716,5 +609,4 @@ module.exports = {
   getPins,
   getStatistics,
   getHeatmap,
-  getPatrolUserBarangays,
 };

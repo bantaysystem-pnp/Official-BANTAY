@@ -135,20 +135,10 @@ const updateStatus = async (req, res) => {
 const getCases = async (req, res) => {
   try {
     const { status, priority, date_from, date_to } = req.query;
-    const role = req.user.role;
-    const userId = req.user.user_id;
 
     let whereConditions = ["cr.is_deleted = false"];
     let params = [];
     let paramCount = 1;
-
-    // Role-based filtering
-    if (role === "Patrol") {
-      return res.status(200).json({ success: true, data: [] });
-    } else if (role === "Barangay") {
-      // Barangay users can't access Case Management at all
-      return res.status(200).json({ success: true, data: [] });
-    }
 
     if (status) {
       whereConditions.push(`c.status = $${paramCount++}`);
@@ -310,8 +300,6 @@ const getStatistics = async (req, res) => {
 const getCaseById = async (req, res) => {
   try {
     const { id } = req.params;
-    const role = req.user.role;
-    const userId = req.user.user_id;
 
     const caseResult = await pool.query(
       `SELECT c.*, 
@@ -329,10 +317,6 @@ const getCaseById = async (req, res) => {
         .json({ success: false, message: "Case not found" });
 
     const theCase = caseResult.rows[0];
-
-    if (role === "Barangay") {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
 
     // Get notes
     const isAdmin =

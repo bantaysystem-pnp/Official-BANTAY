@@ -262,7 +262,6 @@ function EBlotter() {
     date_from: "",
     date_to: "",
     barangay: "",
-    data_source: "",
   });
   const [editMode, setEditMode] = useState(false);
   const [editingBlotterId, setEditingBlotterId] = useState(null);
@@ -602,20 +601,6 @@ function EBlotter() {
             (b) =>
               (b.crime_type || "").toLowerCase() ===
               f.incident_type.toLowerCase(),
-          );
-        }
-
-        if (f.data_source === "brgy_referral") {
-          results = results.filter((b) =>
-            (b.blotter_entry_number || "").toUpperCase().startsWith("BRGY"),
-          );
-        } else if (f.data_source === "bantay_import") {
-          results = results.filter((b) =>
-            (b.blotter_entry_number || "").toUpperCase().startsWith("BLT"),
-          );
-        } else if (f.data_source === "manual") {
-          results = results.filter((b) =>
-            /^\d{4}/.test(b.blotter_entry_number || ""),
           );
         }
 
@@ -1289,7 +1274,6 @@ function EBlotter() {
       date_from: "",
       date_to: "",
       barangay: "",
-      data_source: "",
     };
     setFilters(empty);
     fetchBlotters(activeReportTab, false, empty);
@@ -3959,22 +3943,20 @@ function EBlotter() {
               onChange={handleFilterChange}
             />
           </div>
-          {activeReportTab !== "referred" && (
-            <div className="eb-filter-group">
-              <label className="eb-filter-label">Status</label>
-              <select
-                className="eb-filter-input"
-                name="status"
-                value={filters.status}
-                onChange={handleFilterChange}
-              >
-                <option value="">All Status</option>
-                <option>Under Investigation</option>
-                <option>Cleared</option>
-                <option>Solved</option>
-              </select>
-            </div>
-          )}
+          <div className="eb-filter-group">
+            <label className="eb-filter-label">Status</label>
+            <select
+              className="eb-filter-input"
+              name="status"
+              value={filters.status}
+              onChange={handleFilterChange}
+            >
+              <option value="">All Status</option>
+              <option>Under Investigation</option>
+              <option>Cleared</option>
+              <option>Solved</option>
+            </select>
+          </div>
           <div className="eb-filter-group">
             <label className="eb-filter-label">Crime Type</label>
             <select
@@ -4079,27 +4061,9 @@ function EBlotter() {
         </div>
       </div>
 
-      <div className="eb-report-tabs">
-        <button
-          className={`eb-report-tab ${activeReportTab === "reports" ? "active" : ""}`}
-          onClick={() => {
-            if (activeReportTab === "reports") return;
-            activeReportTabRef.current = "reports"; // ADD THIS
-            setBlotters([]);
-            setCurrentPage(1);
-            setActiveReportTab("reports");
-            fetchBlotters("reports");
-          }}
-        >
-          Reports
-        </button>
-      </div>
-
       <div className="eb-table-card">
         <div className="eb-table-container">
-          <table
-            className={`eb-data-table ${activeReportTab === "referred" ? "eb-table-referred" : "eb-table-reports"}`}
-          >
+          <table className="eb-data-table eb-table-reports">
             <thead>
               <tr>
                 <th>Report Number</th>
@@ -4114,7 +4078,7 @@ function EBlotter() {
               {loading ? null : blotters.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={activeReportTab === "referred" ? 5 : 6}
+                    colSpan={6}
                     style={{
                       textAlign: "center",
                       padding: "32px",
@@ -4127,40 +4091,38 @@ function EBlotter() {
               ) : (
                 paginatedBlotters.map((b) => (
                   <tr key={b.report_id}>
-                    {activeReportTab !== "referred" && (
-                      <td>
+                    <td>
+                      <span
+                        style={{
+                          fontFamily: "monospace",
+                          fontWeight: "700",
+                          color: "var(--navy-primary)",
+                          fontSize: "13px",
+                          background: "rgba(30,58,95,0.07)",
+                          padding: "4px 10px",
+                          borderRadius: "6px",
+                          display: "inline-block",
+                        }}
+                      >
+                        {b.report_number}
+                      </span>
+                      {b.data_source === "ciras_import" && (
                         <span
                           style={{
-                            fontFamily: "monospace",
-                            fontWeight: "700",
-                            color: "var(--navy-primary)",
-                            fontSize: "13px",
-                            background: "rgba(30,58,95,0.07)",
-                            padding: "4px 10px",
-                            borderRadius: "6px",
-                            display: "inline-block",
+                            marginLeft: "6px",
+                            fontSize: "10px",
+                            fontWeight: 700,
+                            background: "#e0f2fe",
+                            color: "#0369a1",
+                            padding: "2px 6px",
+                            borderRadius: "4px",
+                            verticalAlign: "middle",
                           }}
                         >
-                          {b.report_number}
+                          CIRAS
                         </span>
-                        {b.data_source === "ciras_import" && (
-                          <span
-                            style={{
-                              marginLeft: "6px",
-                              fontSize: "10px",
-                              fontWeight: 700,
-                              background: "#e0f2fe",
-                              color: "#0369a1",
-                              padding: "2px 6px",
-                              borderRadius: "4px",
-                              verticalAlign: "middle",
-                            }}
-                          >
-                            CIRAS
-                          </span>
-                        )}
-                      </td>
-                    )}
+                      )}
+                    </td>
                     <td>
                       <span
                         style={{
@@ -4175,15 +4137,13 @@ function EBlotter() {
                     <td>{`${b.place_barangay}`}</td>
                     <td>{formatDate(b.date_time_reported)}</td>
 
-                    {activeReportTab !== "referred" && (
-                      <td>
-                        <span
-                          className={`eb-status-badge ${getStatusClass(b.status)}`}
-                        >
-                          {b.status}
-                        </span>
-                      </td>
-                    )}
+                    <td>
+                      <span
+                        className={`eb-status-badge ${getStatusClass(b.status)}`}
+                      >
+                        {b.status}
+                      </span>
+                    </td>
                     <td>
                       <div className="eb-table-actions">
                         <button

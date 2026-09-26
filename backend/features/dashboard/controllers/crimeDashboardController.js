@@ -458,27 +458,6 @@ const queryCompleteData = async (where, params, nextP) => {
 };
 
 // ─── /overview — ALL 7 queries in one round trip ──────────────────────────────
-// HELPER: Get assigned barangays for a patrol user's ongoing schedule
-const getPatrolUserBarangays = async (userId) => {
-  try {
-    const result = await pool.query(`
-      SELECT DISTINCT par.barangay
-      FROM patrol_assignment pa
-      JOIN patrol_assignment_patroller pap ON pa.patrol_id = pap.patrol_id
-      JOIN active_patroller ap ON pap.active_patroller_id = ap.active_patroller_id
-      JOIN patrol_assignment_route par ON pa.patrol_id = par.patrol_id
-      WHERE ap.officer_id = $1
-        AND pa.start_date <= CURRENT_DATE 
-        AND pa.end_date >= CURRENT_DATE
-        AND par.stop_order <= 0
-        AND par.barangay IS NOT NULL
-    `, [userId]);
-    return result.rows.map(r => r.barangay.toUpperCase());
-  } catch (error) {
-    console.error("getPatrolUserBarangays error:", error);
-    return [];
-  }
-};
 
 // ─── MOBILE UNITS — for filter dropdown ───────────────────────────────────────
 const getMobileUnits = async (req, res) => {
@@ -498,29 +477,8 @@ const getMobileUnits = async (req, res) => {
 
 const getOverview = async (req, res) => {
   try {
-    let { where, params, nextP } = buildWhere(req.query);
+    const { where, params, nextP } = buildWhere(req.query);
     const { granularity = "monthly", date_from, date_to, preset } = req.query;
-
-    // Patrol user barangay restriction
-    const { role_name, user_id } = req.user || {};
-    if (role_name === "Patrol") {
-      const assignedBarangays = await getPatrolUserBarangays(user_id);
-      if (assignedBarangays.length > 0) {
-        // Override with patrol assigned barangays
-        where = where.replace(
-          /UPPER\(TRIM\(cr\.place_barangay\)\) = ANY\(\$\d+::text\[\]\)/,
-          ""
-        );
-        params = params.filter((_, i) => {
-          // Remove old barangay params by checking if value is an array
-          return !Array.isArray(params[i]);
-        });
-        const expanded = expandBarangays(assignedBarangays);
-        where += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${nextP}::text[])`;
-        params.push(expanded);
-        nextP++;
-      }
-    }
 
     const [
   summary,
@@ -689,6 +647,5 @@ module.exports = {
   getByBarangay,
   getByModus,
   getCompleteData,
-  getPatrolUserBarangays,
-  getMobileUnits, // ← add this
+  getMobileUnits,
 };

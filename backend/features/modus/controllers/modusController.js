@@ -60,14 +60,45 @@ const createModus = async (req, res) => {
       .json({ success: false, message: "Invalid crime type" });
 
   const dup = await pool.query(
-    `SELECT id FROM crime_modus_reference WHERE UPPER(crime_type) = $1 AND LOWER(modus_name) = LOWER($2)`,
+    `SELECT id, is_active FROM crime_modus_reference WHERE UPPER(crime_type) = $1 AND LOWER(modus_name) = LOWER($2)`,
     [crime_type.toUpperCase(), modus_name],
   );
-  if (dup.rows.length > 0)
+
+  if (dup.rows.length > 0 && dup.rows[0].is_active) {
     return res.status(400).json({
       success: false,
       message: "Modus already exists for this crime type",
     });
+  }
+
+  if (dup.rows.length > 0 && !dup.rows[0].is_active) {
+    // Name matches a removed (deactivated) modus — reactivate it and
+    // overwrite the description with what was just submitted, since the
+    // person is re-adding this modus with fresh info, not reviving the old row as-is.
+    const restored = await pool.query(
+      `UPDATE crime_modus_reference
+       SET is_active = true, description = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [description || null, dup.rows[0].id],
+    );
+
+    await logAudit({
+      userId: req.user?.user_id,
+      username: req.user?.username,
+      eventName: "Modus Restored",
+      description: `Restored modus "${modus_name}" for ${crime_type.toUpperCase()} via reuse of removed name`,
+      action: "UPDATE",
+      status: "success",
+      source: "Web Portal",
+      ipAddress: getClientIp(req),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `"${modus_name}" was previously removed — restored it with the new description.`,
+      data: { ...restored.rows[0], reactivated: true },
+    });
+  }
 
   const result = await pool.query(
     `INSERT INTO crime_modus_reference (crime_type, modus_name, description, is_active)
@@ -86,7 +117,7 @@ const createModus = async (req, res) => {
     ipAddress: getClientIp(req),
   });
 
-  res.status(201).json({ success: true, data: result.rows[0] });
+  res.status(201).json({ success: true, data: { ...result.rows[0], reactivated: false } });
 };
 
 // PATCH update (edit fields or toggle is_active for soft remove/restore)
@@ -110,14 +141,15 @@ const updateModus = async (req, res) => {
     const effectiveModusName = modus_name || current.rows[0].modus_name;
 
     const dup = await pool.query(
-      `SELECT id FROM crime_modus_reference WHERE UPPER(crime_type) = $1 AND LOWER(modus_name) = LOWER($2) AND id != $3`,
+      `SELECT id, is_active FROM crime_modus_reference WHERE UPPER(crime_type) = $1 AND LOWER(modus_name) = LOWER($2) AND id != $3`,
       [effectiveCrimeType, effectiveModusName, req.params.id],
     );
-    if (dup.rows.length > 0)
-      return res.status(400).json({
-        success: false,
-        message: "Modus already exists for this crime type",
-      });
+    if (dup.rows.length > 0) {
+      const message = dup.rows[0].is_active
+        ? "Modus already exists for this crime type"
+        : `"${effectiveModusName}" was previously removed for this crime type. Restore it from the removed list.`;
+      return res.status(400).json({ success: false, message });
+    }
   }
 
   let result;

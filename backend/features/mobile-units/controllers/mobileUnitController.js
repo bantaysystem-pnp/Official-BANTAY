@@ -130,9 +130,10 @@ const updateMobileUnit = async (req, res) => {
 
       const dup = await MobileUnit.findByName(trimmedName);
       if (dup && dup.id !== parseInt(id, 10)) {
-        return res
-          .status(409)
-          .json({ success: false, message: `"${trimmedName}" already exists` });
+        const message = dup.is_active
+          ? `"${trimmedName}" already exists`
+          : `"${trimmedName}" was previously removed. Restore it from the removed list.`;
+        return res.status(409).json({ success: false, message });
       }
     }
 

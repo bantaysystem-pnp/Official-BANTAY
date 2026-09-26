@@ -264,51 +264,7 @@ const createModusForCrimeType = async (req, res) => {
   }
 };
 
-const getTypeOfPlaceOptions = async (req, res) => {
-  try {
-    const rows = await CrimeReportV2.getAllTypeOfPlace();
-    res.status(200).json({ success: true, data: rows });
-  } catch (error) {
-    console.error("Get type of place error:", error);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
 
-// Creates a new Type of Place on the fly (used by the "Others, please specify" option in the blotter form)
-const createTypeOfPlaceEntry = async (req, res) => {
-  try {
-    const trimmed = (req.body.place_name || "").trim();
-    if (!trimmed) {
-      return res.status(400).json({ success: false, message: "Type of Place is required" });
-    }
-    if (trimmed.length > 100) {
-      return res.status(400).json({ success: false, message: "Type of Place too long (max 150 characters)" });
-    }
-
-    const result = await CrimeReportV2.findOrCreateTypeOfPlace(trimmed);
-
-    if (result.created) {
-      await logAudit({
-        userId: req.user?.user_id,
-        username: req.user?.username,
-        eventName: "Type of Place Auto-Created (Blotter Form)",
-        description: `Created Type of Place "${trimmed}"`,
-        action: "CREATE",
-        status: "success",
-        source: "Web Portal",
-        ipAddress: getClientIp(req),
-      });
-    }
-
-    res.status(result.created ? 201 : 200).json({
-      success: true,
-      data: { id: result.id, place_name: result.place_name, created: result.created },
-    });
-  } catch (error) {
-    console.error("Create type of place error:", error);
-    res.status(500).json({ success: false, message: "Error creating type of place", error: error.message });
-  }
-};
 
 const getTypeOfOperationOptions = async (req, res) => {
   try {

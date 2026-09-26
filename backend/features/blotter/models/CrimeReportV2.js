@@ -236,38 +236,7 @@ class CrimeReportV2 {
     return result.rows[0] || null;
   }
 
-  static async getAllTypeOfPlace() {
-    const result = await pool.query(
-      `SELECT id, place_name FROM type_of_place_reference
-       WHERE is_active = true ORDER BY place_name ASC`,
-    );
-    return result.rows;
-  }
 
-  static async findOrCreateTypeOfPlace(placeName) {
-    const existing = await pool.query(
-      `SELECT id, place_name FROM type_of_place_reference
-       WHERE LOWER(place_name) = LOWER($1)`,
-      [placeName],
-    );
-    if (existing.rows.length > 0) {
-      return {
-        id: existing.rows[0].id,
-        place_name: existing.rows[0].place_name,
-        created: false,
-      };
-    }
-    const inserted = await pool.query(
-      `INSERT INTO type_of_place_reference (place_name, is_active)
-       VALUES ($1, true) RETURNING id, place_name`,
-      [placeName],
-    );
-    return {
-      id: inserted.rows[0].id,
-      place_name: inserted.rows[0].place_name,
-      created: true,
-    };
-  }
 
   static async getAllTypeOfOperation() {
     const result = await pool.query(
@@ -279,16 +248,23 @@ class CrimeReportV2 {
 
   static async findOrCreateTypeOfOperation(operationName) {
     const existing = await pool.query(
-      `SELECT id, operation_name FROM type_of_operation_reference
+      `SELECT id, operation_name, is_active FROM type_of_operation_reference
        WHERE LOWER(operation_name) = LOWER($1)`,
       [operationName],
     );
     if (existing.rows.length > 0) {
-      return {
-        id: existing.rows[0].id,
-        operation_name: existing.rows[0].operation_name,
-        created: false,
-      };
+      const row = existing.rows[0];
+      if (!row.is_active) {
+        // Name matches a removed Type of Operation — reactivate it instead of
+        // leaving a report pointing at an is_active=false reference row.
+        await pool.query(
+          `UPDATE type_of_operation_reference SET is_active = true, updated_at = CURRENT_TIMESTAMP
+           WHERE id = $1`,
+          [row.id],
+        );
+        return { id: row.id, operation_name: row.operation_name, created: false, reactivated: true };
+      }
+      return { id: row.id, operation_name: row.operation_name, created: false, reactivated: false };
     }
     const inserted = await pool.query(
       `INSERT INTO type_of_operation_reference (operation_name, is_active)
@@ -299,6 +275,7 @@ class CrimeReportV2 {
       id: inserted.rows[0].id,
       operation_name: inserted.rows[0].operation_name,
       created: true,
+      reactivated: false,
     };
   }
 

@@ -15,52 +15,22 @@ const {
   getStatistics,
 } = require("../controllers/casesController");
 const requireAdmin = (req, res, next) => {
-  if (!["Administrator", "Technical Administrator"].includes(req.user.role))
-    return res.status(403).json({ success: false, message: "Access denied" });
-  next();
-};
-
-const requireAdminOrInvestigator = (req, res, next) => {
-  if (
-    !["Administrator", "Technical Administrator", "Investigator"].includes(
-      req.user.role,
-    )
-  )
+  if (req.user.role !== "Administrator")
     return res.status(403).json({ success: false, message: "Access denied" });
   next();
 };
 
 router.get("/statistics", authenticate, requireAdmin, getStatistics);
 router.patch("/notes/:noteId/restore", authenticate, requireAdmin, restoreNote);
-router.patch(
-  "/notes/:noteId",
-  authenticate,
-  requireAdminOrInvestigator,
-  editNote,
-);
-router.delete(
-  "/notes/:noteId",
-  authenticate,
-  requireAdminOrInvestigator,
-  deleteNote,
-);
+router.patch("/notes/:noteId", authenticate, editNote);
+router.delete("/notes/:noteId", authenticate, deleteNote);
 router.get("/", authenticate, getCases);
 router.get("/:id", authenticate, getCaseById);
 
 router.patch("/:id/assign", authenticate, requireAdmin, assignInvestigator);
-router.patch(
-  "/:id/status",
-  authenticate,
-  requireAdminOrInvestigator,
-  updateStatus,
-);
-router.post("/:id/notes", authenticate, requireAdminOrInvestigator, addNote);
-router.patch(
-  "/:id/priority",
-  authenticate,
-  requireAdminOrInvestigator,
-  updatePriority,
-);
+router.patch("/:id/status", authenticate, updateStatus);
+router.post("/:id/notes", authenticate, addNote);
+router.patch("/:id/priority", authenticate, updatePriority);
 router.patch(
   "/:id/suspect-apprehended",
   authenticate,

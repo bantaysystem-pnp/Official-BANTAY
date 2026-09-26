@@ -1,19 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import "./AddUserModal.css";
 import LoadingModal from "../modals/LoadingModal";
-import {
-  CURRENT_BARANGAYS,
-  LEGACY_BARANGAY_OPTIONS,
-} from "../../utils/barangayOptions";
 import ImageCropperModal from "../modals/ImageCropperModal";
 
 const PSGC_BASE = "https://psgc.gitlab.io/api";
 const API_URL = import.meta.env.VITE_API_URL;
 
-const BACOOR_CITY_CODE = "042103000";
-
 const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
-  const [step, setStep] = useState("pnp"); // barangay/select removed — PNP only
   const [shouldScrollToError, setShouldScrollToError] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -31,7 +24,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     municipality_code: "",
     barangay_code: "",
     address_line: "",
-    role: "Patrol",
+    role: "User",
     rank_id: "",
     profilePicture: null,
   });
@@ -41,43 +34,29 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
   const [profilePicturePreview, setProfilePicturePreview] = useState(null);
   const [cropperOpen, setCropperOpen] = useState(false);
   const [cropperImageSrc, setCropperImageSrc] = useState(null);
-  // PSGC dropdown data
+
   const [regions, setRegions] = useState([]);
   const [provinces, setProvinces] = useState([]);
   const [municipalities, setMunicipalities] = useState([]);
   const [barangays, setBarangays] = useState([]);
 
-  // PSGC loading states
   const [loadingRegions, setLoadingRegions] = useState(false);
   const [loadingProvinces, setLoadingProvinces] = useState(false);
   const [loadingMunicipalities, setLoadingMunicipalities] = useState(false);
   const [loadingBarangays, setLoadingBarangays] = useState(false);
 
-  // Ranks
   const [ranks, setRanks] = useState([]);
   const [loadingRanks, setLoadingRanks] = useState(false);
 
   const modalContentRef = useRef(null);
   const errorRefs = useRef({});
 
-  // =====================================================
-  // ON OPEN: fetch regions for PNP, fetch Bacoor barangays for Barangay users
-  // =====================================================
   useEffect(() => {
-    if (isOpen && step === "pnp") {
+    if (isOpen) {
       fetchRegions();
       fetchRanks();
     }
-    if (isOpen && step === "barangay") {
-      fetchBacoorBarangays();
-      setFormData((prev) => ({
-        ...prev,
-        region_code: "040000000",
-        province_code: "042100000",
-        municipality_code: BACOOR_CITY_CODE,
-      }));
-    }
-  }, [isOpen, step]);
+  }, [isOpen]);
 
   // =====================================================
   // PSGC API FETCHERS
@@ -142,26 +121,6 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
       setBarangays(data.sort((a, b) => a.name.localeCompare(b.name)));
     } catch (err) {
       console.error("Failed to fetch barangays:", err);
-      setBarangays([]);
-    } finally {
-      setLoadingBarangays(false);
-    }
-  };
-
-  const fetchBacoorBarangays = async () => {
-    try {
-      setLoadingBarangays(true);
-      setBarangays([]);
-      const res = await fetch(
-        `${PSGC_BASE}/cities/${BACOOR_CITY_CODE}/barangays/`,
-      );
-      if (!res.ok) {
-        throw new Error(`PSGC API returned ${res.status}`);
-      }
-      const data = await res.json();
-      setBarangays(data.sort((a, b) => a.name.localeCompare(b.name)));
-    } catch (err) {
-      console.error("Failed to fetch Bacoor barangays:", err);
       setBarangays([]);
     } finally {
       setLoadingBarangays(false);
@@ -253,7 +212,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     return null;
   };
 
-  const validateCommonFields = () => {
+  const validateForm = () => {
     const newErrors = {};
 
     const emailError = validateEmail(formData.email);
@@ -314,21 +273,6 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     return newErrors;
   };
 
-  const validatePNPForm = () => {
-    const newErrors = validateCommonFields();
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateBarangayForm = () => {
-    const newErrors = validateCommonFields();
-    delete newErrors.region_code;
-    delete newErrors.province_code;
-    delete newErrors.municipality_code;
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
   // =====================================================
   // SCROLL TO FIRST ERROR
   // =====================================================
@@ -380,7 +324,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
 
       setShouldScrollToError(false);
     }
-  }, [shouldScrollToError, errors, step]);
+  }, [shouldScrollToError, errors]);
 
   // =====================================================
   // HANDLERS
@@ -438,7 +382,6 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
       setBarangays([]);
       if (value) {
         if (value === "130000000") {
-          // NCR — skip provinces, go straight to municipalities
           setLoadingMunicipalities(true);
           fetch(`${PSGC_BASE}/regions/${value}/cities-municipalities/`)
             .then((r) => r.json())
@@ -559,7 +502,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
       municipality_code: "",
       barangay_code: "",
       address_line: "",
-      role: "Patrol",
+      role: "User",
       rank_id: "",
       profilePicture: null,
     });
@@ -572,30 +515,15 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
   };
 
   const handleClose = () => {
-    setStep("pnp");
     resetForm();
     onClose();
   };
 
-  const handleUserTypeSelect = (type) => {
-    if (type === "pnp") {
-      setStep("pnp");
-      setFormData((prev) => ({ ...prev, role: "Patrol" }));
-    } else {
-      setStep("barangay");
-      setFormData((prev) => ({ ...prev, role: "Brgy. Captain" }));
-    }
-  };
-
-  const handleBack = () => {
-    setStep("select");
-    resetForm();
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const isValid = step === "pnp" ? validatePNPForm() : validateBarangayForm();
-    if (!isValid) {
+    const newErrors = validateForm();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       setShouldScrollToError(true);
       return;
     }
@@ -613,7 +541,9 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
           formattedSuffix = formattedSuffix.toUpperCase();
       }
 
-      submitData.append("userType", step === "pnp" ? "police" : "barangay");
+      // userType kept as "police" so the existing register endpoint's
+      // rank_id handling still applies — there is only one account type now.
+      submitData.append("userType", "police");
       submitData.append("email", formData.email.trim());
       submitData.append("firstName", formData.first_name.trim());
       submitData.append("lastName", formData.last_name.trim());
@@ -642,8 +572,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
         );
       }
 
-      // PNP-specific: rank_id
-      if (step === "pnp" && formData.rank_id) {
+      if (formData.rank_id) {
         submitData.append("rankId", formData.rank_id);
       }
 
@@ -675,11 +604,10 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
           }
         }
 
-        const userType = step === "pnp" ? "PNP" : "Barangay";
         const emailStatus = data.user?.verificationEmailSent
           ? `A verification email has been sent.`
           : "User created but the verification email could not be delivered. Contact the user directly.";
-        onUserAdded(`${userType} user added successfully! ${emailStatus}`);
+        onUserAdded(`User added successfully! ${emailStatus}`);
         handleClose();
       } else {
         const newErrors = {};
@@ -717,7 +645,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
   if (!isOpen) return null;
 
   // =====================================================
-  // SHARED RENDERERS
+  // RENDER SECTIONS
   // =====================================================
   const renderInfoBox = () => (
     <div className="aum-info-box">
@@ -726,7 +654,7 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     </div>
   );
 
-  const renderProfilePicture = (inputId) => (
+  const renderProfilePicture = () => (
     <div
       className="aum-form-section"
       ref={(el) => (errorRefs.current["profilePicture"] = el)}
@@ -757,13 +685,13 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
         <div className="aum-profile-picture-actions">
           <input
             type="file"
-            id={inputId}
+            id="profilePicture"
             accept="image/jpeg,image/jpg,image/png"
             onChange={handleProfilePictureChange}
             style={{ display: "none" }}
           />
           <label
-            htmlFor={inputId}
+            htmlFor="profilePicture"
             className="aum-btn aum-btn-secondary"
             style={{
               display: "flex",
@@ -1130,76 +1058,6 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     </div>
   );
 
-  const renderBarangayAddressInfo = () => (
-    <div className="aum-form-section">
-      <h3 className="aum-form-section-title">Address</h3>
-      <div className="aum-form-row">
-        <div
-          className="aum-form-group"
-          ref={(el) => (errorRefs.current["barangay_code"] = el)}
-        >
-          <label className="aum-form-label">Barangay *</label>
-          <select
-            name="barangay_code"
-            value={formData.barangay_code}
-            onChange={handleChange}
-            className={`aum-form-input ${errors.barangay_code ? "aum-error" : ""}`}
-            disabled={loadingBarangays}
-          >
-            <option value="">
-              {loadingBarangays ? "Loading barangays..." : "Select Barangay"}
-            </option>
-            {CURRENT_BARANGAYS.map((b) => (
-              <option key={b} value={b}>
-                {b}
-              </option>
-            ))}
-            <optgroup label="── Pre-2023 Names (Auto-resolved) ──">
-              {LEGACY_BARANGAY_OPTIONS.map((b, i) => (
-                <option key={i} value={b.value}>
-                  {b.label}
-                </option>
-              ))}
-            </optgroup>
-          </select>
-          {errors.barangay_code && (
-            <span className="aum-error-text">{errors.barangay_code}</span>
-          )}
-        </div>
-      </div>
-      <div className="aum-form-row">
-        <div
-          className="aum-form-group aum-full-width"
-          ref={(el) => (errorRefs.current["address_line"] = el)}
-        >
-          <label className="aum-form-label">
-            House No. / Blk / Lot / Street / Subdivision
-          </label>
-          <input
-            type="text"
-            name="address_line"
-            value={formData.address_line}
-            onChange={handleChange}
-            className="aum-form-input"
-            placeholder="e.g., Blk 4 Lot 12, Sunshine Subd., 123 Rizal St. (optional)"
-            maxLength="255"
-          />
-          <span style={{ fontSize: "12px", color: "#666", marginTop: "4px" }}>
-            {formData.address_line.length}/255 characters
-          </span>
-        </div>
-      </div>
-      <div
-        className="aum-info-box aum-info-box-note"
-        style={{ marginTop: "12px" }}
-      >
-        <strong>Note:</strong> The barangay assignment is automatically taken
-        from the Barangay selected above. Each barangay can only have one
-        designated account.
-      </div>
-    </div>
-  );
-
   // =====================================================
   // RENDER
   // =====================================================
@@ -1207,156 +1065,74 @@ const AddUserModal = ({ isOpen, onClose, onUserAdded }) => {
     <>
       <LoadingModal isOpen={isSubmitting} message="Adding user..." />
       <div className="aum-modal-overlay">
-        <div
-          className={`aum-modal-container ${step === "select" ? "aum-modal-select" : "aum-modal-large"}`}
-          ref={modalContentRef}
-        >
-          {/* PNP USER FORM */}
-          {step === "pnp" && (
-            <>
-              <div className="aum-modal-header">
-                <div className="aum-header-with-back">
-                  <h2>Add PNP User</h2>
-                  <button
-                    type="button"
-                    className="aum-modal-close"
-                    onClick={handleClose}
+        <div className="aum-modal-container aum-modal-large" ref={modalContentRef}>
+          <div className="aum-modal-header">
+            <div className="aum-header-with-back">
+              <h2>Add User</h2>
+              <button
+                type="button"
+                className="aum-modal-close"
+                onClick={handleClose}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="aum-modal-form">
+            {renderInfoBox()}
+            {renderProfilePicture()}
+            {renderPersonalInfo()}
+            {renderContactInfo()}
+            {renderAddressInfo()}
+
+            <div className="aum-form-section">
+              <h3 className="aum-form-section-title">Official Information</h3>
+              <div className="aum-form-row">
+                <div className="aum-form-group">
+                  <label className="aum-form-label">Role *</label>
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    className="aum-form-input"
                   >
-                    ×
-                  </button>
+                    <option value="Administrator">Administrator</option>
+                    <option value="User">User</option>
+                  </select>
+                </div>
+                <div className="aum-form-group">
+                  <label className="aum-form-label">Rank</label>
+                  <select
+                    name="rank_id"
+                    value={formData.rank_id}
+                    onChange={handleChange}
+                    disabled={loadingRanks}
+                    className="aum-form-input"
+                  >
+                    <option value="">
+                      {loadingRanks ? "Loading ranks..." : "No rank assigned"}
+                    </option>
+                    {ranks.map((r) => (
+                      <option key={r.rank_id} value={r.rank_id}>
+                        {r.abbreviation}. — {r.rank_name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
+            </div>
 
-              <form onSubmit={handleSubmit} className="aum-modal-form">
-                {renderInfoBox()}
-                {renderProfilePicture("profilePicturePnp")}
-                {renderPersonalInfo()}
-                {renderContactInfo()}
-                {renderAddressInfo()}
-
-                {/* PNP Official Information */}
-                <div className="aum-form-section">
-                  <h3 className="aum-form-section-title">
-                    Official Information
-                  </h3>
-                  <div className="aum-form-row">
-                    <div className="aum-form-group">
-                      <label className="aum-form-label">Role *</label>
-                      <select
-                        name="role"
-                        value={formData.role}
-                        onChange={handleChange}
-                        className="aum-form-input"
-                      >
-                        <option value="Technical Administrator">
-                          Technical Administrator
-                        </option>
-                        <option value="Administrator">Administrator</option>
-                        <option value="Investigator">Investigator</option>
-                        <option value="Patrol">Patrol</option>
-                      </select>
-                    </div>
-                    <div className="aum-form-group">
-                      <label className="aum-form-label">Rank</label>
-                      <select
-                        name="rank_id"
-                        value={formData.rank_id}
-                        onChange={handleChange}
-                        disabled={loadingRanks}
-                        className="aum-form-input"
-                      >
-                        <option value="">
-                          {loadingRanks
-                            ? "Loading ranks..."
-                            : "No rank assigned"}
-                        </option>
-                        {ranks.map((r) => (
-                          <option key={r.rank_id} value={r.rank_id}>
-                            {r.abbreviation}. — {r.rank_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="aum-modal-actions">
-                  <button
-                    type="submit"
-                    className="aum-btn aum-btn-primary"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Adding User..." : "Add PNP User"}
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
-
-          {/* BARANGAY USER FORM */}
-          {/* BARANGAY USER FORM */}
-          {step === "barangay" && (
-            <>
-              <div className="aum-modal-header">
-                <div className="aum-header-with-back">
-                  <button
-                    type="button"
-                    className="aum-back-button"
-                    onClick={handleBack}
-                  >
-                    ← Back
-                  </button>
-                  <h2>Add Barangay User</h2>
-                  <button
-                    type="button"
-                    className="aum-modal-close"
-                    onClick={handleClose}
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleSubmit} className="aum-modal-form">
-                {renderInfoBox()}
-                {renderProfilePicture("profilePictureBarangay")}
-                {renderPersonalInfo()}
-                {renderContactInfo()}
-                {renderBarangayAddressInfo()}
-
-                {/* ADD THIS SECTION */}
-                <div className="aum-form-section">
-                  <h3 className="aum-form-section-title">
-                    Official Information
-                  </h3>
-                  <div className="aum-form-row">
-                    <div className="aum-form-group">
-                      <label className="aum-form-label">Role *</label>
-                      <select
-                        name="role"
-                        value={formData.role}
-                        onChange={handleChange}
-                        className="aum-form-input"
-                      >
-                        <option value="Brgy. Captain">Brgy. Captain</option>
-                        <option value="Brgy. Official">Brgy. Official</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="aum-modal-actions">
-                  <button
-                    type="submit"
-                    className="aum-btn aum-btn-primary"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? "Adding User..." : "Add Barangay User"}
-                  </button>
-                </div>
-              </form>
-            </>
-          )}
+            <div className="aum-modal-actions">
+              <button
+                type="submit"
+                className="aum-btn aum-btn-primary"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Adding User..." : "Add User"}
+              </button>
+            </div>
+          </form>
         </div>
         <ImageCropperModal
           isOpen={cropperOpen}

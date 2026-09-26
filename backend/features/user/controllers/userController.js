@@ -846,10 +846,10 @@ const updateUser = async (req, res) => {
 
   const client = await pool.connect();
   try {
-    if (req.user.role !== "Technical Administrator")
+    if (req.user.role !== "Administrator")
       return res.status(403).json({
         success: false,
-        message: "Only technical administrators can update user information",
+        message: "Only administrators can update user information",
       });
 
     const userCheck = await client.query(
@@ -1090,10 +1090,10 @@ const deactivateUser = async (req, res) => {
 const lockUser = async (req, res) => {
   const { id } = req.params;
   try {
-    if (req.user.role !== "Technical Administrator")
+    if (req.user.role !== "Administrator")
       return res.status(403).json({
         success: false,
-        message: "Only technical administrators can lock user accounts",
+        message: "Only administrators can lock user accounts",
       });
     if (req.user.user_id === id)
       return res.status(400).json({
@@ -1143,10 +1143,10 @@ const lockUser = async (req, res) => {
 const unlockUser = async (req, res) => {
   const { id } = req.params;
   try {
-    if (req.user.role !== "Technical Administrator")
+    if (req.user.role !== "Administrator")
       return res.status(403).json({
         success: false,
-        message: "Only technical administrators can unlock user accounts",
+        message: "Only administrators can unlock user accounts",
       });
 
     const userCheck = await pool.query(

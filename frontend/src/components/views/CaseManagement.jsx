@@ -3,15 +3,12 @@
 import React, { useState, useEffect } from "react";
 import "./CaseManagement.css";
 import LoadingModal from "../modals/LoadingModal";
+import { getUserFromToken } from "../../utils/auth";
 
 const API_URL = `${import.meta.env.VITE_API_URL}/cases`;
 
 const getToken = () => localStorage.getItem("token");
-const getUser = () => ({
-  role: localStorage.getItem("role"),
-  user_id: localStorage.getItem("userId"),
-  username: localStorage.getItem("username"),
-});
+const getUser = () => getUserFromToken() || {};
 
 function CaseManagement() {
   const [cases, setCases] = useState([]);
@@ -20,7 +17,6 @@ function CaseManagement() {
     active_cases: 0,
     solved_cases: 0,
     cleared_cases: 0,
-    referred_cases: 0,
     unassigned_cases: 0,
     high_priority_cases: 0,
     suspect_apprehended_breakdown: [],
@@ -62,8 +58,7 @@ function CaseManagement() {
   const [editingNote, setEditingNote] = useState(null);
   const [showDeletedNotes, setShowDeletedNotes] = useState(false);
 
-  // Data
-  const [investigators, setInvestigators] = useState([]);
+
     // Suspect Apprehended — dropdown source + "+ Others" inline add (Update Case modal)
   const [suspectMethods, setSuspectMethods] = useState([]);
   const [selectedSuspectApprehended, setSelectedSuspectApprehended] = useState("");
@@ -114,8 +109,7 @@ function CaseManagement() {
     suspect_apprehended: "",
   });
   const user = getUser();
-  const isAdmin =
-    user.role === "Administrator" || user.role === "Technical Administrator";
+  const isAdmin = user.role === "Administrator";
 
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
@@ -217,22 +211,7 @@ function CaseManagement() {
     }
   };
 
-  const fetchInvestigators = async () => {
-    try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_URL}/user-management/users?userType=police&role=Investigator&limit=100`,
-        {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        },
-      );
-      const data = await res.json();
-      if (data.users) {
-        setInvestigators(data.users.filter((u) => u.status === "verified"));
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
+
 
     const fetchSuspectMethods = async (includeInactive = false) => {
     try {
@@ -742,12 +721,11 @@ function CaseManagement() {
       Low: "cm-priority-low",
     })[p] || "cm-priority-none";
 
-  const getStatusClass = (s) =>
+    const getStatusClass = (s) =>
     ({
       "Under Investigation": "cm-status-active",
       Solved: "cm-status-solved",
       Cleared: "cm-status-cleared",
-      Referred: "cm-status-referred",
     })[s] || "cm-status-active";
 
   const totalPages = Math.ceil(cases.length / ITEMS_PER_PAGE);

@@ -318,6 +318,7 @@ function EBlotter() {
 
   const [currentUserId, setCurrentUserId] = useState(null);
   const [userRole, setUserRole] = useState(null);
+  const isAdmin = userRole === "Administrator"
   const [actionLoading, setActionLoading] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
 
@@ -352,25 +353,6 @@ function EBlotter() {
     fetchTypeOfOperationOptions();
   }, []);
 
-  useEffect(() => {
-    const fetchTypeOfOperationOptions = async () => {
-      try {
-        const res = await fetch(
-          `${import.meta.env.VITE_API_URL}/blotters/type-of-operation`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          },
-        );
-        const data = await res.json();
-        if (data.success) setTypeOfOperationOptions(data.data);
-      } catch (err) {
-        console.error("Failed to load Type of Operation options:", err);
-      }
-    };
-    fetchTypeOfOperationOptions();
-  }, []);
 
   useEffect(() => {
     const fetchTypeOfPlaceOptions = async () => {
@@ -1843,6 +1825,8 @@ function EBlotter() {
           <p>Digital incident and reporting system</p>
         </div>
         <div className="eb-page-header-right">
+
+          {isAdmin && (
           <button
             className="eb-btn eb-btn-deleted"
             onClick={() => {
@@ -1871,6 +1855,7 @@ function EBlotter() {
             </svg>
             Deleted Records
           </button>
+          )}
           <button
             className="eb-btn eb-btn-secondary"
             onClick={() => setShowExportModal(true)}
@@ -4164,6 +4149,7 @@ function EBlotter() {
                         >
                           <EditIcon /> Edit
                         </button>
+                        {isAdmin && (
                         <button
                           className="eb-action-btn eb-action-btn-danger"
                           onClick={(e) => {
@@ -4173,6 +4159,7 @@ function EBlotter() {
                         >
                           <DeleteIcon /> Delete
                         </button>
+                        )}
                       </div>
                     </td>
                   </tr>

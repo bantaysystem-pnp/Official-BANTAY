@@ -403,13 +403,7 @@ const AuditLog = () => {
   // Near the top of the AuditLog component, after the state declarations
   const rawUser = localStorage.getItem("user");
   const currentUser = rawUser ? JSON.parse(rawUser) : null;
-  const RESTRICTED_ROLES = [
-    "Brgy. Captain",
-    "Brgy. Official",
-    "Investigator",
-    "Patrol",
-  ];
-  const isRestricted = RESTRICTED_ROLES.includes(currentUser?.role);
+  const isRestricted = currentUser?.role !== "Administrator";
 
   const closeExportPreview = () => {
     exportPreview?.revoke();

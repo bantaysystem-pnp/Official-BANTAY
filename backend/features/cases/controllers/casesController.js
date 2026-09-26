@@ -75,8 +75,6 @@ const updateStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    // "Referred" added — it's a valid cases_v2.status value per the CHECK
-    // constraint, even though the old blotter-backed flow never exposed it here.
     const allowed = ["Under Investigation", "Solved", "Cleared"];
     if (!status || !allowed.includes(status))
       return res
@@ -114,11 +112,6 @@ const updateStatus = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-
-    // Notify the assigned investigator (only if someone is assigned)
-    const assignedIoId = caseResult.rows[0].assigned_io_id;
-    if (assignedIoId && assignedIoId !== req.user.user_id) {
-    }
 
     return res.status(200).json({
       success: true,
@@ -239,7 +232,6 @@ const getStatistics = async (req, res) => {
     COUNT(*) FILTER (WHERE c.status = 'Under Investigation') AS active_cases,
     COUNT(*) FILTER (WHERE c.status = 'Solved') AS solved_cases,
     COUNT(*) FILTER (WHERE c.status = 'Cleared') AS cleared_cases,
-    COUNT(*) FILTER (WHERE c.status = 'Referred') AS referred_cases,
     COUNT(*) FILTER (WHERE c.assigned_io_name IS NULL OR c.assigned_io_name = '') AS unassigned_cases,
     COUNT(*) FILTER (WHERE c.priority = 'High') AS high_priority_cases
    FROM cases_v2 c
@@ -283,7 +275,6 @@ const getStatistics = async (req, res) => {
         active_cases: parseInt(row.active_cases) || 0,
         solved_cases: parseInt(row.solved_cases) || 0,
         cleared_cases: parseInt(row.cleared_cases) || 0,
-        referred_cases: parseInt(row.referred_cases) || 0,
         unassigned_cases: parseInt(row.unassigned_cases) || 0,
         high_priority_cases: parseInt(row.high_priority_cases) || 0,
         suspect_apprehended_breakdown: suspectApprehendedBreakdown,
@@ -319,9 +310,7 @@ const getCaseById = async (req, res) => {
     const theCase = caseResult.rows[0];
 
     // Get notes
-    const isAdmin =
-      req.user.role === "Administrator" ||
-      req.user.role === "Technical Administrator";
+    const isAdmin = req.user.role === "Administrator";
     const notes = await pool.query(
       `SELECT cn.id, cn.note, cn.note_date,
 to_char(cn.created_at, 'YYYY-MM-DD"T"HH24:MI:SS') AS created_at,
@@ -387,15 +376,6 @@ const addNote = async (req, res) => {
       ipAddress: getClientIp(req),
     });
 
-    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
-    const assignedIoId = caseResult.rows[0].assigned_io_id;
-
-    // Notify investigator if someone else added the note
-    if (assignedIoId && assignedIoId !== req.user.user_id) {
-    }
-    // Notify admins if investigator added the note
-    if (req.user.role === "Investigator") {
-    }
     return res.status(201).json({
       success: true,
       message: "Note added",
@@ -447,14 +427,6 @@ const updatePriority = async (req, res) => {
       source: "Web Portal",
       ipAddress: getClientIp(req),
     });
-
-    const reportNumber = (await getReportNumberForCase(id)) || `Case #${id}`;
-
-    const assignedIoId = caseResult.rows[0].assigned_io_id;
-    if (assignedIoId && assignedIoId !== req.user.user_id) {
-    }
-    if (req.user.role === "Investigator") {
-    }
 
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {

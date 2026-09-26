@@ -291,12 +291,6 @@ const LoginSystem = () => {
       }
 
       localStorage.setItem("token", data.token);
-      const decoded = jwtDecode(data.token);
-      console.log("Decoded JWT:", decoded);
-      localStorage.setItem("role", decoded.role);
-      localStorage.setItem("userId", decoded.user_id);
-      localStorage.setItem("username", decoded.username);
-      localStorage.setItem("user", JSON.stringify(data.user));
 
       setSuccess("Login successful!");
       setFormData((prev) => ({

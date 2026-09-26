@@ -32,6 +32,7 @@ import LoadingModal from "../modals/LoadingModal";
 import { useExportDashboard } from "../../hooks/useExportDashboard";
 import ShortRangeWarningModal from "../modals/ShortRangeWarningModal";
 import PdfPreviewModal from "../modals/PdfPreviewModal";
+import { getUserFromToken } from "../../utils/auth";
 
 
 
@@ -2675,9 +2676,7 @@ const isCacheValid = (filters) =>
 // ─── MAIN ─────────────────────────────────────────────────────────────────────
 const CrimeDashboard = () => {
     const navigate = useNavigate();
-  const role = localStorage.getItem("role");
-  const isAdmin =
-    role === "Administrator" || role === "Technical Administrator";
+  const isAdmin = getUserFromToken()?.role === "Administrator";
 
   const [appliedFilters, setAppliedFilters] = useState(() => BLANK_FILTERS());
 

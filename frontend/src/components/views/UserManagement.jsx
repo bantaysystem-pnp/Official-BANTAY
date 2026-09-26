@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { logout, getUserFromToken } from "../../utils/auth";
-import {
-  CURRENT_BARANGAYS,
-  LEGACY_BARANGAY_OPTIONS,
-} from "../../utils/barangayOptions";
+import { getUserFromToken } from "../../utils/auth";
 import AddUserModal from "../modals/AddUserModal";
 import EditUserModal from "../modals/EditUserModal";
 import DeleteUserModal from "../modals/DeleteUserModal";
@@ -12,10 +8,7 @@ import "./UserManagement.css";
 import LoadingModal from "../modals/LoadingModal";
 
 const ITEMS_PER_PAGE = 15;
-const PSGC_BASE = "https://psgc.gitlab.io/api";
 const API_URL = import.meta.env.VITE_API_URL;
-
-const BACOOR_CITY_CODE = "042103000";
 
 const STATUS_PARAM_MAP = {
   Default: null,
@@ -25,9 +18,6 @@ const STATUS_PARAM_MAP = {
   Deactivated: "deactivated",
 };
 
-// =====================================================
-// ICON COMPONENTS
-// =====================================================
 const EditIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -81,20 +71,12 @@ const RestoreIcon = () => (
   </svg>
 );
 
-// =====================================================
-// DEFAULT FILTER STATE
-// =====================================================
 const DEFAULT_FILTERS = {
   searchTerm: "",
   roleFilter: "all",
   statusFilter: "Default",
-  barangayFilter: "all",
-  barangayRoleFilter: "all", // ← ADD
 };
 
-// =====================================================
-// MAIN COMPONENT
-// =====================================================
 const UserManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -113,97 +95,43 @@ const UserManagement = () => {
     totalPages: 1,
   });
 
-  const [policeRoles, setPoliceRoles] = useState([]);
-  const [allBarangays, setAllBarangays] = useState([]);
-  const [barangaysLoading, setBarangaysLoading] = useState(false);
-  const [barangayNameMap, setBarangayNameMap] = useState({});
+  const [roles, setRoles] = useState([]);
 
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // ── Draft filters (what the user is editing in the UI) ──
   const [draft, setDraft] = useState({ ...DEFAULT_FILTERS });
-
-  // ── Applied filters (what was last submitted — drives fetchUsers) ──
   const [appliedFilters, setAppliedFilters] = useState({ ...DEFAULT_FILTERS });
-
-  const [activeTab, setActiveTab] = useState("police");
   const [currentPage, setCurrentPage] = useState(1);
-  const [barangayRoles, setBarangayRoles] = useState([]);
 
-  // Derived: is draft different from applied?
   const isDirty = JSON.stringify(draft) !== JSON.stringify(appliedFilters);
-
-  // ===================================================
-  // HELPER: resolve barangay name from map
-  // ===================================================
-  const getBarangayName = (code) => {
-    if (!code) return "N/A";
-    return barangayNameMap[code] || code;
-  };
-
-  // ===================================================
-  // FETCH ALL BACOOR BARANGAYS FROM PSGC
-  // ===================================================
-  const fetchAllBacoorBarangays = useCallback(async () => {
-    try {
-      setBarangaysLoading(true);
-      const res = await fetch(
-        `${PSGC_BASE}/cities/${BACOOR_CITY_CODE}/barangays/`,
-      );
-      if (!res.ok) throw new Error(`PSGC returned ${res.status}`);
-      const data = await res.json();
-
-      const sorted = data
-        .map((b) => ({ code: b.code, name: b.name }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-
-      setAllBarangays(sorted);
-
-      const nameMap = {};
-      sorted.forEach(({ code, name }) => {
-        nameMap[code] = name;
-      });
-      setBarangayNameMap(nameMap);
-    } catch (err) {
-      console.error("Failed to load Bacoor barangays from PSGC:", err);
-      setAllBarangays([]);
-    } finally {
-      setBarangaysLoading(false);
-    }
-  }, []);
 
   // ===================================================
   // FETCH FILTER OPTIONS
   // ===================================================
   const fetchFilterOptions = async () => {
-  try {
-    const token = localStorage.getItem("token");
-    const res = await fetch(`${API_URL}/user-management/filter-options`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setPoliceRoles(data.roles || []);
-      setBarangayRoles(data.barangayRoles || []); // ← ADD
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${API_URL}/user-management/filter-options`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setRoles(data.roles || []);
+      }
+    } catch (err) {
+      console.error("Error fetching filter options:", err);
     }
-  } catch (err) {
-    console.error("Error fetching filter options:", err);
-  }
-};
+  };
 
-  // ===================================================
-  // ON MOUNT
-  // ===================================================
   useEffect(() => {
     const userData = getUserFromToken();
     setUser(userData);
     fetchFilterOptions();
-    fetchAllBacoorBarangays();
   }, []);
 
   // ===================================================
-  // FETCH USERS — driven only by appliedFilters & activeTab
+  // FETCH USERS
   // ===================================================
   const fetchUsers = useCallback(
     async (page = 1) => {
@@ -212,7 +140,6 @@ const UserManagement = () => {
         const token = localStorage.getItem("token");
 
         const params = new URLSearchParams();
-        params.set("userType", activeTab === "police" ? "police" : "barangay");
         params.set("page", page);
         params.set("limit", ITEMS_PER_PAGE);
 
@@ -222,17 +149,9 @@ const UserManagement = () => {
         if (appliedFilters.searchTerm.trim())
           params.set("search", appliedFilters.searchTerm.trim());
 
-        if (activeTab === "police" && appliedFilters.roleFilter !== "all") {
+        if (appliedFilters.roleFilter !== "all") {
           params.set("role", appliedFilters.roleFilter);
         }
-        if (activeTab === "barangay") {
-  if (appliedFilters.barangayFilter !== "all") {
-    params.set("barangayCode", appliedFilters.barangayFilter);
-  }
-  if (appliedFilters.barangayRoleFilter !== "all") {
-    params.set("role", appliedFilters.barangayRoleFilter);
-  }
-}
 
         const res = await fetch(
           `${API_URL}/user-management/users?${params.toString()}`,
@@ -266,50 +185,25 @@ const UserManagement = () => {
         setLoading(false);
       }
     },
-    [activeTab, appliedFilters],
+    [appliedFilters],
   );
 
-  // Re-fetch whenever appliedFilters or activeTab changes
   useEffect(() => {
     setCurrentPage(1);
     fetchUsers(1);
-  }, [appliedFilters, activeTab]);
+  }, [appliedFilters]);
 
-  // ===================================================
-  // TAB SWITCH — reset both draft and applied
-  // ===================================================
-  const handleTabSwitch = (tab) => {
-    if (tab === activeTab) return;
-    setUsers([]);
-    setLoading(true);
-    setError("");
-    setPagination({ total: 0, page: 1, limit: ITEMS_PER_PAGE, totalPages: 1 });
-    setCurrentPage(1);
-    setDraft({ ...DEFAULT_FILTERS });
-    setAppliedFilters({ ...DEFAULT_FILTERS });
-    setActiveTab(tab);
-  };
-
-  // ===================================================
-  // APPLY FILTERS
-  // ===================================================
   const handleApplyFilters = () => {
     setCurrentPage(1);
     setAppliedFilters({ ...draft });
   };
 
-  // ===================================================
-  // RESET FILTERS
-  // ===================================================
   const handleResetFilters = () => {
     setDraft({ ...DEFAULT_FILTERS });
     setAppliedFilters({ ...DEFAULT_FILTERS });
     setCurrentPage(1);
   };
 
-  // ===================================================
-  // TOAST TIMERS
-  // ===================================================
   useEffect(() => {
     if (successMessage) {
       const t = setTimeout(() => setSuccessMessage(""), 5000);
@@ -324,9 +218,6 @@ const UserManagement = () => {
     }
   }, [errorMessage]);
 
-  // ===================================================
-  // HANDLERS
-  // ===================================================
   const handleUserAdded = (message) => {
     setSuccessMessage(message || "User added successfully!");
     fetchUsers(currentPage);
@@ -383,9 +274,6 @@ const UserManagement = () => {
     fetchUsers(page);
   };
 
-  // ===================================================
-  // HELPERS
-  // ===================================================
   const isCurrentUser = (userData) => user && userData.user_id === user.user_id;
 
   const formatDate = (dateString) => {
@@ -436,12 +324,6 @@ const UserManagement = () => {
     if (r.includes("user")) return "um-role-user";
   };
 
-  const formatRoleLabel = (role) => {
-    if (!role) return "N/A";
-    if (role.toLowerCase() === "technical administrator") return "Tech Admin"; // ← display only
-    return role;
-  };
-
   const getStatusText = (userData) => {
     switch (userData.status) {
       case "deactivated":
@@ -472,24 +354,6 @@ const UserManagement = () => {
 
   const isUserDeactivated = (u) => u.status === "deactivated";
 
-  const getSortedUsers = () => {
-    if (activeTab !== "barangay") return users;
-    return [...users].sort((a, b) => {
-      const nameA =
-        barangayNameMap[a.assigned_barangay_code] ||
-        a.assigned_barangay_code ||
-        "";
-      const nameB =
-        barangayNameMap[b.assigned_barangay_code] ||
-        b.assigned_barangay_code ||
-        "";
-      return nameA.localeCompare(nameB);
-    });
-  };
-
-  // ===================================================
-  // RENDER
-  // ===================================================
   return (
     <div className="um-content-area">
       <div className="um-page-header">
@@ -508,7 +372,6 @@ const UserManagement = () => {
       {/* Filter Bar */}
       <div className="um-filter-bar">
         <div className="um-filter-fields">
-          {/* Search */}
           <div className="um-filter-group">
             <label className="um-filter-label">Search</label>
             <input
@@ -525,78 +388,24 @@ const UserManagement = () => {
             />
           </div>
 
-          {/* Role filter — police tab only */}
-          {activeTab === "police" && (
-            <div className="um-filter-group">
-              <label className="um-filter-label">Role</label>
-              <select
-                className="um-filter-input"
-                value={draft.roleFilter}
-                onChange={(e) =>
-                  setDraft((f) => ({ ...f, roleFilter: e.target.value }))
-                }
-              >
-                <option value="all">All Roles</option>
-                {policeRoles.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Barangay filter */}
-          {activeTab === "barangay" && (
-            <div className="um-filter-group">
-              <label className="um-filter-label">Barangay</label>
-              <select
-                className="um-filter-input"
-                value={draft.barangayFilter}
-                onChange={(e) =>
-                  setDraft((f) => ({ ...f, barangayFilter: e.target.value }))
-                }
-                disabled={barangaysLoading}
-              >
-                <option value="all">
-                  {barangaysLoading ? "Loading barangays..." : "All Barangays"}
+          <div className="um-filter-group">
+            <label className="um-filter-label">Role</label>
+            <select
+              className="um-filter-input"
+              value={draft.roleFilter}
+              onChange={(e) =>
+                setDraft((f) => ({ ...f, roleFilter: e.target.value }))
+              }
+            >
+              <option value="all">All Roles</option>
+              {roles.map((r) => (
+                <option key={r} value={r}>
+                  {r}
                 </option>
-                {CURRENT_BARANGAYS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-                <optgroup label="── Pre-2023 Names (Auto-resolved) ──">
-                  {LEGACY_BARANGAY_OPTIONS.map((b, i) => (
-                    <option key={i} value={b.value}>
-                      {b.label}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-            </div>
-          )}
+              ))}
+            </select>
+          </div>
 
-          {/* Role filter — barangay tab */}
-          {activeTab === "barangay" && (
-  <div className="um-filter-group">
-    <label className="um-filter-label">Role</label>
-    <select
-      className="um-filter-input"
-      value={draft.barangayRoleFilter}
-      onChange={(e) =>
-        setDraft((f) => ({ ...f, barangayRoleFilter: e.target.value }))
-      }
-    >
-      <option value="all">All Roles</option>
-      {barangayRoles.map((r) => (
-        <option key={r} value={r}>{r}</option>
-      ))}
-    </select>
-  </div>
-)}
-
-          {/* Status filter */}
           <div className="um-filter-group">
             <label className="um-filter-label">Status</label>
             <select
@@ -609,7 +418,7 @@ const UserManagement = () => {
                 draft.statusFilter === "Default"
                   ? { color: "#adb5bd" }
                   : { color: "#212529" }
-              } // ← explicitly reset to dark when value is chosen
+              }
             >
               <option value="Default" style={{ color: "#212529" }}>
                 Select Status
@@ -630,7 +439,6 @@ const UserManagement = () => {
           </div>
         </div>
 
-        {/* Action buttons */}
         <div className="um-filter-actions">
           <button
             className={`um-apply-btn${isDirty ? " um-apply-btn-dirty" : ""}`}
@@ -657,36 +465,26 @@ const UserManagement = () => {
         ) : (
           <>
             <div className="um-table-container">
-              <table
-                className={`um-data-table ${activeTab === "barangay" ? "um-table-barangay" : "um-table-police"}`}
-              >
+              <table className="um-data-table um-table-police">
                 <thead>
                   <tr>
                     <th>User</th>
                     <th className="um-col-role">Role</th>
-                    {activeTab === "barangay" && (
-                      <th className="um-col-barangay">Barangay</th>
-                    )}
                     <th className="um-col-status">Status</th>
                     <th className="um-col-last-login">Last Login</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {getSortedUsers().length === 0 ? (
+                  {users.length === 0 ? (
                     <tr>
-                      <td
-                        colSpan={activeTab === "barangay" ? 6 : 5}
-                        style={{ textAlign: "center", padding: "40px" }}
-                      >
-                        No {activeTab === "police" ? "Police" : "Barangay"}{" "}
-                        users found matching your filters.
+                      <td colSpan={5} style={{ textAlign: "center", padding: "40px" }}>
+                        No users found matching your filters.
                       </td>
                     </tr>
                   ) : (
-                    getSortedUsers().map((userData) => (
+                    users.map((userData) => (
                       <tr key={userData.user_id}>
-                        {/* User cell */}
                         <td>
                           <div className="um-user-cell">
                             <div className="um-user-cell-avatar">
@@ -730,24 +528,14 @@ const UserManagement = () => {
                           </div>
                         </td>
 
-                        {/* Role */}
                         <td className="um-col-role">
                           <span
                             className={`um-role-badge ${getRoleBadgeClass(userData.role)}`}
                           >
-                            {formatRoleLabel(userData.role)}{" "}
-                            {/* ← was: userData.role || "N/A" */}
+                            {userData.role || "N/A"}
                           </span>
                         </td>
 
-                        {/* Barangay column */}
-                        {activeTab === "barangay" && (
-                          <td className="um-col-barangay">
-                            {getBarangayName(userData.assigned_barangay_code)}
-                          </td>
-                        )}
-
-                        {/* Status */}
                         <td className="um-col-status">
                           <span
                             className={`um-status-badge ${getStatusBadgeClass(userData)}`}
@@ -756,15 +544,12 @@ const UserManagement = () => {
                           </span>
                         </td>
 
-                        {/* Last login */}
                         <td className="um-col-last-login">
                           {formatDate(userData.last_login)}
                         </td>
 
-                        {/* Actions */}
                         <td>
                           <div className="um-action-links">
-                            {/* EDIT */}
                             <button
                               onClick={() => handleEditUser(userData)}
                               className={`um-action-btn um-action-btn-edit${isCurrentUser(userData) ? " um-action-disabled" : ""}`}
@@ -779,7 +564,6 @@ const UserManagement = () => {
                               Edit
                             </button>
 
-                            {/* RESTORE or DELETE */}
                             {isUserDeactivated(userData) ? (
                               <button
                                 onClick={() => handleRestoreUser(userData)}
@@ -810,7 +594,6 @@ const UserManagement = () => {
               </table>
             </div>
 
-            {/* Pagination */}
             {pagination.total > 0 && (
               <div className="um-pagination">
                 <div className="um-pagination-info">
@@ -846,7 +629,6 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* MODALS */}
       <AddUserModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
@@ -872,15 +654,10 @@ const UserManagement = () => {
         onUserRestored={handleUserRestored}
       />
 
-      {/* SUCCESS TOAST */}
       {successMessage && (
         <div className="um-toast um-toast-success">
           <div className="um-toast-content">
-            <svg
-              className="um-toast-icon"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
+            <svg className="um-toast-icon" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -892,15 +669,10 @@ const UserManagement = () => {
         </div>
       )}
 
-      {/* ERROR TOAST */}
       {errorMessage && (
         <div className="um-toast um-toast-error">
           <div className="um-toast-content">
-            <svg
-              className="um-toast-icon"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
+            <svg className="um-toast-icon" viewBox="0 0 20 20" fill="currentColor">
               <path
                 fillRule="evenodd"
                 d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"

@@ -11,19 +11,18 @@ const PRIVACY_SECTIONS = [
     body: (
       <>
         <p>
-          The <strong>Bantay System</strong>, operated by{" "}
+          The <strong>B.A.N.T.A.Y. System</strong>, operated by{" "}
           <strong>PNP Bacoor</strong>, is committed to protecting your
           personal information and your privacy. This Data Privacy Statement
           explains how we collect, use, process, share, and protect personal
-          data through the Bantay System web portal and mobile application,
+          data through the B.A.N.T.A.Y. System web portal and mobile application,
           in compliance with the Philippine Data Privacy Act of 2012
           (Republic Act No. 10173).
         </p>
         <p>
           <strong>This system is not open to public sign-up.</strong>{" "}
           Accounts are created and assigned by PNP Bacoor administrators for
-          authorized personnel only (police officers, investigators, patrol
-          officers, barangay staff). By logging into and using the Bantay
+          authorized personnel only. By logging into and using the B.A.N.T.A.Y.
           System, you consent to the data practices described in this
           statement.
         </p>
@@ -35,8 +34,7 @@ const PRIVACY_SECTIONS = [
     body: (
       <>
         <p>
-          <strong>If you are a system user</strong> (officer, investigator,
-          patrol, administrator, barangay staff), we collect:
+          <strong>If you are a system user</strong>, we collect:
         </p>
         <ul>
           <li>Name, username, email, phone number, date of birth, gender</li>
@@ -44,26 +42,8 @@ const PRIVACY_SECTIONS = [
           <li>Role, rank, and assigned barangay/unit</li>
           <li>Login activity, IP address, and account status</li>
         </ul>
-        <p>
-          <strong>If you are a patrol officer</strong>, additionally:
-        </p>
-        <ul>
-          <li>Real-time GPS location while on duty</li>
-          <li>Patrol schedules and after-patrol report content</li>
-        </ul>
-        <p>
-          <strong>If your information appears in a crime report</strong> (as
-          a complainant, victim, witness, or suspect), entered by authorized
-          personnel — not by you directly:
-        </p>
-        <ul>
-          <li>Full name, contact details, address, demographic information</li>
-          <li>Narrative description of the incident</li>
-          <li>
-            Where relevant to a suspect record: physical description and, if
-            applicable, information regarding substance use
-          </li>
-        </ul>
+        
+       
         <p>
           <strong>If you are a registered barangay resident</strong>, entered
           by barangay staff:
@@ -83,10 +63,7 @@ const PRIVACY_SECTIONS = [
       <ul>
         <li>An administrator creates your user account</li>
         <li>You log in and use the system</li>
-        <li>You or another officer file a crime report or barangay referral</li>
-        <li>A patrol officer's device reports GPS location while on duty</li>
-        <li>Barangay staff register or import resident records</li>
-        <li>You submit an after-patrol report or upload related photos</li>
+        <li>You or another officer file a crime report</li>
       </ul>
     ),
   },
@@ -99,19 +76,15 @@ const PRIVACY_SECTIONS = [
           crime reports and cases.
         </li>
         <li>
-          <strong>Patrol Operations:</strong> To schedule, deploy, and
-          monitor patrol officers and mobile units, and to document
-          after-patrol activity.
+          <strong>Patrol Operations:</strong> To
+          monitor patrol officers and mobile units.
         </li>
         <li>
           <strong>Crime Mapping and Analysis:</strong> To identify crime
           patterns and incidence levels across barangays for resource
           planning.
         </li>
-        <li>
-          <strong>Barangay Administration:</strong> To maintain resident
-          records for local governance functions.
-        </li>
+        
         <li>
           <strong>Security and Accountability:</strong> To verify user
           identity, secure accounts, and maintain audit logs of system
@@ -139,10 +112,7 @@ const PRIVACY_SECTIONS = [
             DOJ).
           </li>
           <li>
-            <strong>Service Providers:</strong> Cloudinary (photo storage),
-            Firebase/Google (push notifications), Cloudflare (automated
-            crime-type classification), and OpenStreetMap (location lookup)
-            — solely to provide their specific function.
+            <strong>Service Providers:</strong> Cloudinary (photo storage), Cloudflare (AI Assessment), Mapbox (crime mapping), Brevo (email notifications), Vercel (frontend hosting), Railway (backend and database hosting).
           </li>
         </ul>
       </>
@@ -160,10 +130,7 @@ const PRIVACY_SECTIONS = [
           Deleted records are soft-deleted (marked inactive, recoverable by
           administrators) before permanent removal.
         </li>
-        <li>
-          GPS location history is retained for a limited period and used
-          only for patrol monitoring purposes.
-        </li>
+        
       </ul>
     ),
   },
@@ -208,11 +175,7 @@ const PRIVACY_SECTIONS = [
             while a case is open.
           </li>
         </ul>
-        <p>
-          If your data appears in the system as a complainant, witness, or
-          resident (not as a logged-in user), you may exercise these rights
-          by contacting PNP Bacoor directly using the details below.
-        </p>
+        
       </>
     ),
   },

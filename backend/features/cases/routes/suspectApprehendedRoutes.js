@@ -9,7 +9,7 @@ const {
 } = require("../controllers/suspectApprehendedController");
 
 const requireAdmin = (req, res, next) => {
-  if (!["Administrator", "Technical Administrator"].includes(req.user.role))
+  if (req.user.role !== "Administrator")
     return res.status(403).json({ success: false, message: "Access denied" });
   next();
 };

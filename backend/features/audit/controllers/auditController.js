@@ -12,8 +12,10 @@ const getAuditLogs = async (req, res) => {
 
     const { search, action, status, dateFrom, dateTo } = req.query;
 
-    const RESTRICTED_ROLES = ["Brgy. Captain", "Brgy. Official","Investigator", "Patrol"];
-    const isRestricted = RESTRICTED_ROLES.includes(req.user.role);
+    // Only Administrators can view the full audit log; everyone else sees
+    // only their own actions. Allowlist by design so a future role defaults
+    // to restricted rather than silently getting full access.
+    const isRestricted = req.user.role !== "Administrator";
 
     // ── Build WHERE clauses dynamically ──
     const conditions = [];

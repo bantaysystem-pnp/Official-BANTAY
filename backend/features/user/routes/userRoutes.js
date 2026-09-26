@@ -4,6 +4,18 @@
 
 const router = require("express").Router();
 const { authenticate } = require("../../../shared/middleware/tokenMiddleware");
+
+// Requires `authenticate` to have already run and set req.user.
+const requireAdmin = (req, res, next) => {
+  if (req.user?.role !== "Administrator") {
+    return res.status(403).json({
+      success: false,
+      message: "Administrator access required",
+    });
+  }
+  next();
+};
+
 const {
   getAllUsers,
   getFilterOptions,
@@ -64,16 +76,16 @@ router.get("/verify-account", verifyAccount);
 // =====================================================
 
 // GET  /users?userType=police&status=active&search=...&role=...&page=1&limit=20
-router.get("/users", authenticate, getAllUsers);
+router.get("/users", authenticate, requireAdmin, getAllUsers);
 
 // GET  /filter-options  (roles for police)
 router.get("/filter-options", authenticate, getFilterOptions);
 
 // GET  /users/:id
-router.get("/users/:id", authenticate, getUserById);
+router.get("/users/:id", authenticate, requireAdmin, getUserById);
 
 // POST /register
-router.post("/register", authenticate, upload.single("profilePicture"), registerUser);
+router.post("/register", authenticate, requireAdmin, upload.single("profilePicture"), registerUser);
 
 // PUT  /users/:id
 router.put("/users/:id", authenticate, upload.single("profilePicture"), updateUser);
@@ -85,15 +97,15 @@ router.put("/users/:id/lock", authenticate, lockUser);
 router.put("/users/:id/unlock", authenticate, unlockUser);
 
 // DELETE /users/:id  (deactivate)
-router.delete("/users/:id", authenticate, deactivateUser);
+router.delete("/users/:id", authenticate, requireAdmin, deactivateUser);
 
 router.get("/reauth-status", authenticate, getReauthStatus);
 
 // PUT  /users/:id/restore
-router.put("/users/:id/restore", authenticate, restoreUser);
+router.put("/users/:id/restore", authenticate, requireAdmin, restoreUser);
 
 // POST /users/:id/resend-verification
-router.post("/users/:id/resend-verification", authenticate, resendVerificationEmail);
+router.post("/users/:id/resend-verification", authenticate, requireAdmin, resendVerificationEmail);
 
 // GET  /roles
 router.get("/roles", authenticate, getAllRoles);

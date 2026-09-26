@@ -6,8 +6,7 @@ const router = require("express").Router();
 const { authenticate } = require("../../../shared/middleware/tokenMiddleware");
 const {
   login,
-  mobileLogin,
-  validateToken, // ← add this
+  validateToken,
   logout,
   logoutAll,
   sendOTP,
@@ -22,7 +21,6 @@ const {
 // PUBLIC ROUTES (no auth required)
 // ============================================================
 router.post("/login", login);
-router.post("/mobile/login", mobileLogin);
 router.post("/otp/send", sendOTP);
 router.post("/otp/verify", verifyOTP);
 router.post("/otp/resend", resendOTP);

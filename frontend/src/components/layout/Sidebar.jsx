@@ -4,6 +4,7 @@ import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { navItems } from "../../utils/navItems";
 import { roleAccess } from "../../utils/roleAccess";
+import { getUserFromToken } from "../../utils/auth";
 
 export default function Sidebar({
   openSections,
@@ -12,7 +13,7 @@ export default function Sidebar({
   sidebarOpen,
   onClose,
 }) {
-  const role = localStorage.getItem("role");
+  const role = getUserFromToken()?.role;
   const isAdmin = role === "Administrator" || role === "Technical Administrator";
   const allowedTabs = roleAccess[role] || [];
   const [showLogoutModal, setShowLogoutModal] = useState(false);

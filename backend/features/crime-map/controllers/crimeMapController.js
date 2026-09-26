@@ -122,6 +122,18 @@ const getBoundaries = async (req, res) => {
       params.push(expandBarangays(barangayList));
     }
 
+    const rawMobileUnits = req.query.mobile_units;
+    if (rawMobileUnits) {
+      const unitIds = rawMobileUnits
+        .split(",")
+        .map((v) => parseInt(v.trim(), 10))
+        .filter((v) => !isNaN(v));
+      if (unitIds.length > 0) {
+        crimeQuery += ` AND cr.assigned_mobile_id = ANY($${p++}::int[])`;
+        params.push(unitIds);
+      }
+    }
+
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
     const { role_name, user_id } = req.user || {};
     if (role_name === "Patrol") {
@@ -233,9 +245,19 @@ const getPins = async (req, res) => {
           .filter(Boolean)
       : [];
 
-    if (barangayList.length > 0) {
+     if (barangayList.length > 0) {
       query += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
       params.push(expandBarangays(barangayList));
+    }
+    if (req.query.mobile_units) {
+      const unitIds = req.query.mobile_units
+        .split(",")
+        .map((v) => parseInt(v.trim(), 10))
+        .filter((v) => !isNaN(v));
+      if (unitIds.length > 0) {
+        query += ` AND cr.assigned_mobile_id = ANY($${p++}::int[])`;
+        params.push(unitIds);
+      }
     }
     if (req.query.modus) {
       query += ` AND UPPER(cmr.modus_name) = UPPER($${p++})`;
@@ -367,6 +389,17 @@ const getStatistics = async (req, res) => {
     if (barangayList.length > 0) {
       baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
       params.push(expandBarangays(barangayList));
+    }
+
+    if (req.query.mobile_units) {
+      const unitIds = req.query.mobile_units
+        .split(",")
+        .map((v) => parseInt(v.trim(), 10))
+        .filter((v) => !isNaN(v));
+      if (unitIds.length > 0) {
+        baseWhere += ` AND cr.assigned_mobile_id = ANY($${p++}::int[])`;
+        params.push(unitIds);
+      }
     }
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule
@@ -519,6 +552,17 @@ const getHeatmap = async (req, res) => {
     if (barangayList.length > 0) {
       baseWhere += ` AND UPPER(TRIM(cr.place_barangay)) = ANY($${p++}::text[])`;
       params.push(expandBarangays(barangayList));
+    }
+
+    if (req.query.mobile_units) {
+      const unitIds = req.query.mobile_units
+        .split(",")
+        .map((v) => parseInt(v.trim(), 10))
+        .filter((v) => !isNaN(v));
+      if (unitIds.length > 0) {
+        baseWhere += ` AND cr.assigned_mobile_id = ANY($${p++}::int[])`;
+        params.push(unitIds);
+      }
     }
 
     // Patrol user barangay restriction - ONLY apply if they have an ongoing schedule

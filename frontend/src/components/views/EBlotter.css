@@ -71,12 +71,12 @@ body {
 }
 
 .eb-btn-primary {
-  background: var(--red-primary);
+  background: var(--navy-primary);
   color: var(--white);
 }
 
 .eb-btn-primary:hover {
-  background: var(--red-dark);
+  background: var(--navy-light);
 }
 
 .eb-btn-secondary {
@@ -1045,17 +1045,17 @@ textarea.eb-modal-input {
 }
 
 .eb-btn-deleted {
-  background: var(--navy-primary);
+  background: var(--red-primary);
   color: var(--white);
-  border: 1px solid var(--navy-primary);
+  border: 1px solid var(--red-primary);
   display: flex;
   align-items: center;
   gap: 0px;
 }
 
 .eb-btn-deleted:hover {
-  background: var(--navy-dark);
-  border-color: var(--navy-dark);
+  background: var(--red-dark);
+  border-color: var(--red-dark);
   color: var(--white);
 }
 /* === ACTION BUTTONS (matches User Management style) === */

@@ -4,8 +4,6 @@ export const logout = async () => {
   try {
     const token = localStorage.getItem('token');
 
-    
-    
     if (token) {
       // Call backend logout to revoke token
       await fetch(`${API_URL}/auth/logout`, {

@@ -9,7 +9,7 @@ export const roleAccess = {
   // POLICE ROLES
   // ============================================
 
-  "Technical Administrator": [
+  "Administrator": [
     "overview",
     "dashboard",
     "crime-analytics",
@@ -25,7 +25,8 @@ export const roleAccess = {
     "profile-settings",
   ],
 
-  "Administrator": [
+
+  "User": [
     "overview",
     "dashboard",
     "crime-analytics",
@@ -38,28 +39,5 @@ export const roleAccess = {
     "audit-log",
     "profile-settings",
   ],
-
-  "Investigator": [
-    "overview",
-    "dashboard",
-    "crime-analytics",
-    "e-blotter",
-    "case-management",
-    "modus-management",
-    "type-of-operation-management",
-    "mobile-unit-management",
-    "crime-mapping",
-    "audit-log",
-    "profile-settings",
-  ],
-
-  "Patrol": [
-    "overview",
-    "dashboard",
-    "crime-mapping",
-    "e-blotter",
-    "audit-log",
-  ],
-
 
 };

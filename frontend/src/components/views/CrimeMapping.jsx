@@ -1113,20 +1113,6 @@ function CrimeMapping({
       incidenceTooltipTimerRef.current = null;
     }
 
-    useEffect(() => {
-      const handleClickOutside = (e) => {
-        if (
-          brgyTooltipRef.current &&
-          !brgyTooltipRef.current.contains(e.target)
-        ) {
-          setHoveredBarangay(null);
-        }
-      };
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
-
     const rect = e.currentTarget.getBoundingClientRect();
     const tooltipWidth = 260;
     const viewportPadding = 8;

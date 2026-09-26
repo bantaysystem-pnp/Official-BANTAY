@@ -760,9 +760,8 @@ function CaseManagement() {
         )}
       </div>
 
-            {/* STATS CARDS — Admin only */}
-      {isAdmin && (
-        <div
+            {/* STATS CARDS — visible to all roles */}
+      <div
           className="cm-status-cards-grid"
           style={{
             display: "flex",
@@ -817,7 +816,6 @@ function CaseManagement() {
             );
           })}
         </div>
-      )}
 
       {/* FILTERS */}
       <div className="cm-filter-bar">
@@ -1041,22 +1039,18 @@ function CaseManagement() {
                   >
                     View Details
                   </button>
-                  {isAdmin && (
-                    <button
-                      className="cm-action-btn cm-action-btn-edit"
-                      onClick={() => openUpdateModal(c)}
-                    >
-                      Update Case
-                    </button>
-                  )}
-                  {isAdmin && (
-                    <button
-                      className="cm-action-btn cm-action-btn-success"
-                      onClick={() => openNoteModal(c)}
-                    >
-                      Add Notes
-                    </button>
-                  )}
+                  <button
+                    className="cm-action-btn cm-action-btn-edit"
+                    onClick={() => openUpdateModal(c)}
+                  >
+                    Update Case
+                  </button>
+                  <button
+                    className="cm-action-btn cm-action-btn-success"
+                    onClick={() => openNoteModal(c)}
+                  >
+                    Add Notes
+                  </button>
                 </div>
               </div>
             </div>
@@ -1138,21 +1132,19 @@ function CaseManagement() {
                 </span>
               </div>
 
-              {isAdmin && (
-                <div style={{ marginBottom: "16px" }}>
-                  <label className="cm-modal-label">
-                    Assigned Investigator (optional)
-                  </label>
-                  <input
-                    type="text"
-                    className="cm-modal-input"
-                    placeholder="e.g. Juan Dela Cruz"
-                    value={assignedIoName}
-                    onChange={(e) => setAssignedIoName(e.target.value)}
-                    maxLength={150}
-                  />
-                </div>
-              )}
+              <div style={{ marginBottom: "16px" }}>
+                <label className="cm-modal-label">
+                  Assigned Investigator (optional)
+                </label>
+                <input
+                  type="text"
+                  className="cm-modal-input"
+                  placeholder="e.g. Juan Dela Cruz"
+                  value={assignedIoName}
+                  onChange={(e) => setAssignedIoName(e.target.value)}
+                  maxLength={150}
+                />
+              </div>
 
               <div style={{ marginBottom: "16px" }}>
                 <label className="cm-modal-label">Status *</label>
@@ -1907,18 +1899,16 @@ function CaseManagement() {
                         </button>
                       </div>
                     )}
-                    {isAdmin && (
-                      <button
-                        className="cm-btn cm-btn-primary"
-                        style={{ padding: "8px 16px", fontSize: "13px" }}
-                        onClick={() => {
-                          setShowDetailModal(false);
-                          openNoteModal(selectedCase);
-                        }}
-                      >
-                        + Add Note
-                      </button>
-                    )}
+                    <button
+                      className="cm-btn cm-btn-primary"
+                      style={{ padding: "8px 16px", fontSize: "13px" }}
+                      onClick={() => {
+                        setShowDetailModal(false);
+                        openNoteModal(selectedCase);
+                      }}
+                    >
+                      + Add Note
+                    </button>
                   </div>
                 </div>
                 {selectedCase.notes?.filter((n) =>

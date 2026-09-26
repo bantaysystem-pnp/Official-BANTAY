@@ -29,8 +29,9 @@ class CrimeReportV2 {
         `INSERT INTO crime_reports_v2 (
           report_number, crime_type, stage_of_felony, index_type,
           modus_reference_id, date_time_commission, date_time_reported,
-          place_barangay, type_of_operation, lat, lng, assigned_mobile_id, created_by
-        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          place_barangay, type_of_operation, lat, lng, assigned_mobile_id,
+          assigned_officers, created_by
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
         RETURNING report_id`,
         [
           reportNumber,
@@ -45,6 +46,7 @@ class CrimeReportV2 {
           reportData.lat || null,
           reportData.lng || null,
           reportData.assigned_mobile_id || null,
+          reportData.assigned_officers || [],
           createdBy,
         ],
       );
@@ -87,6 +89,7 @@ class CrimeReportV2 {
         cr.index_type, cr.place_barangay,
         cr.type_of_operation, cr.lat, cr.lng,
         cr.assigned_mobile_id, mu.unit_name AS assigned_mobile_name,
+        cr.assigned_officers,
         TO_CHAR(cr.date_time_commission, 'YYYY-MM-DD"T"HH24:MI') as date_time_commission,
         TO_CHAR(cr.date_time_reported, 'YYYY-MM-DD"T"HH24:MI') as date_time_reported,
         cmr.modus_name,
@@ -138,6 +141,7 @@ class CrimeReportV2 {
         cr.index_type, cr.modus_reference_id,
         cr.place_barangay, cr.type_of_operation, cr.lat, cr.lng,
         cr.assigned_mobile_id, mu.unit_name AS assigned_mobile_name,
+        cr.assigned_officers,
         cr.created_by, cr.created_at, cr.updated_at, cr.is_deleted, cr.deleted_at,
         TO_CHAR(cr.date_time_commission, 'YYYY-MM-DD"T"HH24:MI') as date_time_commission,
         TO_CHAR(cr.date_time_reported, 'YYYY-MM-DD"T"HH24:MI') as date_time_reported,
@@ -159,9 +163,9 @@ class CrimeReportV2 {
         report_number = $1, crime_type = $2, stage_of_felony = $3, index_type = $4,
         modus_reference_id = $5, date_time_commission = $6, date_time_reported = $7,
         place_barangay = $8, type_of_operation = $9, lat = $10, lng = $11,
-        assigned_mobile_id = $12,
+        assigned_mobile_id = $12, assigned_officers = $13,
         updated_at = CURRENT_TIMESTAMP
-       WHERE report_id = $13 AND is_deleted = false
+       WHERE report_id = $14 AND is_deleted = false
        RETURNING *`,
       [
         reportData.report_number && reportData.report_number.trim()
@@ -178,6 +182,7 @@ class CrimeReportV2 {
         reportData.lat || null,
         reportData.lng || null,
         reportData.assigned_mobile_id || null,
+        reportData.assigned_officers || [],
         reportId,
       ],
     );

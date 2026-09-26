@@ -93,24 +93,61 @@ const createModus = async (req, res) => {
 const updateModus = async (req, res) => {
   const { crime_type, modus_name, description, is_active } = req.body;
 
-  const result = await pool.query(
-    `UPDATE crime_modus_reference
-     SET
-       crime_type  = COALESCE($1, crime_type),
-       modus_name  = COALESCE($2, modus_name),
-       description = COALESCE($3, description),
-       is_active   = COALESCE($4, is_active),
-       updated_at  = NOW()
-     WHERE id = $5
-     RETURNING *`,
-    [
-      crime_type ? crime_type.toUpperCase() : null,
-      modus_name || null,
-      description !== undefined ? description : null,
-      is_active !== undefined ? is_active : null,
-      req.params.id,
-    ],
-  );
+  if (crime_type && !INDEX_CRIMES.includes(crime_type.toUpperCase()))
+    return res.status(400).json({ success: false, message: "Invalid crime type" });
+
+  // dup check only matters if either name or crime_type is actually being changed —
+  // pull the current row first so we know what to compare against
+  if (modus_name !== undefined || crime_type !== undefined) {
+    const current = await pool.query(
+      `SELECT crime_type, modus_name FROM crime_modus_reference WHERE id = $1`,
+      [req.params.id],
+    );
+    if (current.rows.length === 0)
+      return res.status(404).json({ success: false, message: "Not found" });
+
+    const effectiveCrimeType = crime_type ? crime_type.toUpperCase() : current.rows[0].crime_type;
+    const effectiveModusName = modus_name || current.rows[0].modus_name;
+
+    const dup = await pool.query(
+      `SELECT id FROM crime_modus_reference WHERE UPPER(crime_type) = $1 AND LOWER(modus_name) = LOWER($2) AND id != $3`,
+      [effectiveCrimeType, effectiveModusName, req.params.id],
+    );
+    if (dup.rows.length > 0)
+      return res.status(400).json({
+        success: false,
+        message: "Modus already exists for this crime type",
+      });
+  }
+
+  let result;
+  try {
+    result = await pool.query(
+      `UPDATE crime_modus_reference
+       SET
+         crime_type  = COALESCE($1, crime_type),
+         modus_name  = COALESCE($2, modus_name),
+         description = COALESCE($3, description),
+         is_active   = COALESCE($4, is_active),
+         updated_at  = NOW()
+       WHERE id = $5
+       RETURNING *`,
+      [
+        crime_type ? crime_type.toUpperCase() : null,
+        modus_name || null,
+        description !== undefined ? description : null,
+        is_active !== undefined ? is_active : null,
+        req.params.id,
+      ],
+    );
+  } catch (err) {
+    if (err.code === "23505") // unique_violation — race condition slipped past the check above
+      return res.status(400).json({
+        success: false,
+        message: "Modus already exists for this crime type",
+      });
+    throw err;
+  }
 
   if (result.rows.length === 0)
     return res.status(404).json({ success: false, message: "Not found" });

@@ -19,8 +19,11 @@ const {
   updateMobileUnit,
 } = require("../controllers/mobileUnitController");
 
-router.get("/", authenticate, requireAdmin, getAllMobileUnits);
-router.post("/", authenticate, requireAdmin, createMobileUnit);
+// Read + create are open to any authenticated role (blotter form's dropdown
+// and "+ Others, please specify" both need them); edit/deactivate/restore
+// stay Admin-only, reachable only from Mobile Unit Management
+router.get("/", authenticate, getAllMobileUnits);
+router.post("/", authenticate, createMobileUnit);
 router.patch("/:id", authenticate, requireAdmin, updateMobileUnit);
 
 module.exports = router;

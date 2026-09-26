@@ -1127,6 +1127,88 @@ textarea.eb-modal-input {
   margin-bottom: 4px;
 }
 
+/* === OFFICERS ON SCENE LIST === */
+.eb-officer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.eb-officer-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.eb-officer-input {
+  flex: 1;
+}
+
+.eb-officer-remove-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  background: rgba(239, 68, 68, 0.08);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.25); /* visible edge even if bg fails to render */
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.eb-required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.eb-officer-remove-btn:hover {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.eb-officer-remove-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: var(--gray-100);
+  color: var(--gray-400);
+  border-color: transparent;
+}
+
+/* character counter under the officer input */
+.eb-officer-char-count {
+  font-size: 11px;
+  color: var(--gray-400);
+  margin-left: 4px;
+  white-space: nowrap;
+}
+
+.eb-officer-add-btn {
+  align-self: flex-start;
+  padding: 7px 14px;
+  background: none;
+  border: 1px dashed var(--gray-300);
+  border-radius: 6px;
+  color: var(--navy-primary);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: "DM Sans", sans-serif;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.eb-officer-add-btn:hover {
+  background: rgba(30, 58, 95, 0.06);
+  border-color: var(--navy-primary);
+}
+
 /* Prevent long select options from stretching row height */
 .eb-modal-input[type="text"],
 select.eb-modal-input {

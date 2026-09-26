@@ -20,21 +20,16 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-router.get("/statistics", authenticate, requireAdmin, getStatistics);
+router.get("/statistics", authenticate, getStatistics);
 router.patch("/notes/:noteId/restore", authenticate, requireAdmin, restoreNote);
 router.patch("/notes/:noteId", authenticate, editNote);
 router.delete("/notes/:noteId", authenticate, deleteNote);
 router.get("/", authenticate, getCases);
 router.get("/:id", authenticate, getCaseById);
 
-router.patch("/:id/assign", authenticate, requireAdmin, assignInvestigator);
+router.patch("/:id/assign", authenticate, assignInvestigator);
 router.patch("/:id/status", authenticate, updateStatus);
 router.post("/:id/notes", authenticate, addNote);
 router.patch("/:id/priority", authenticate, updatePriority);
-router.patch(
-  "/:id/suspect-apprehended",
-  authenticate,
-  requireAdmin,
-  updateSuspectApprehended,
-);
+router.patch("/:id/suspect-apprehended", authenticate, updateSuspectApprehended);
 module.exports = router;

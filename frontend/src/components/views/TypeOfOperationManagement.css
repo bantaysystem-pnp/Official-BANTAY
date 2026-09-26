@@ -197,39 +197,7 @@
 .too-input.error { border-color: var(--red-primary); }
 .too-error { color: var(--red-primary); font-size: 12px; }
 
-/* TOAST */
-.too-toast {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  min-width: 320px;
-  max-width: 420px;
-  padding: 16px 20px;
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  z-index: 9999;
-  font-size: 14px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  animation: tooSlideIn 0.3s ease-out;
-  background: white;
-  border: 1px solid #e5e7eb;
-  color: #111827;
-}
 
-.too-toast-success { border-left: 4px solid #10b981; }
-.too-toast-error { border-left: 4px solid #dc2626; }
-.too-toast-content { display: flex; align-items: center; gap: 10px; }
-.too-toast-icon { width: 20px; height: 20px; flex-shrink: 0; }
-.too-toast-success .too-toast-icon { color: #10b981; }
-.too-toast-error .too-toast-icon { color: #dc2626; }
-
-@keyframes tooSlideIn {
-  from { transform: translateX(400px); opacity: 0; }
-  to   { transform: translateX(0);     opacity: 1; }
-}
 
 /* PAGINATION */
 .too-pagination {

@@ -66,6 +66,22 @@ const createTypeOfOperation = async (req, res) => {
 const updateTypeOfOperation = async (req, res) => {
   const { operation_name, is_active } = req.body;
 
+  if (operation_name !== undefined) {
+    const trimmed = operation_name.trim();
+    if (!trimmed)
+      return res.status(400).json({ success: false, message: "operation_name is required" });
+    if (trimmed.length > 100)
+      return res.status(400).json({ success: false, message: "operation_name too long (max 100 characters)" });
+
+    // exclude the row being edited so it can keep its own name
+    const dup = await pool.query(
+      `SELECT id FROM type_of_operation_reference WHERE LOWER(operation_name) = LOWER($1) AND id != $2`,
+      [trimmed, req.params.id],
+    );
+    if (dup.rows.length > 0)
+      return res.status(400).json({ success: false, message: "This Type of Operation already exists" });
+  }
+
   const result = await pool.query(
     `UPDATE type_of_operation_reference
      SET operation_name = COALESCE($1, operation_name),

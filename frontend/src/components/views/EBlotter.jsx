@@ -239,6 +239,8 @@ function EBlotter() {
   const [addingMobileUnit, setAddingMobileUnit] = useState(false);
   const [showAddMobileUnitInput, setShowAddMobileUnitInput] = useState(false);
 
+  const [assignedOfficers, setAssignedOfficers] = useState([]);
+
   const [pendingExport, setPendingExport] = useState(null);
 
   const fetchControllerRef = useRef(null);
@@ -1087,6 +1089,11 @@ function EBlotter() {
               : "",
         });
 
+        const officersFromServer = Array.isArray(data.data.assigned_officers)
+          ? data.data.assigned_officers
+          : [];
+        setAssignedOfficers(officersFromServer);
+
         if (resolvedBrgy && barangayGeoJSON) {
           const feature = barangayGeoJSON.features.find(
             (f) => f.properties.name_db === resolvedBrgy,
@@ -1206,6 +1213,11 @@ function EBlotter() {
               ? String(data.data.assigned_mobile_id)
               : "",
         });
+        setAssignedOfficers(
+          Array.isArray(data.data.assigned_officers)
+            ? data.data.assigned_officers
+            : [],
+        );
         if (resolvedBrgy && barangayGeoJSON) {
           const feature = barangayGeoJSON.features.find(
             (f) => f.properties.name_db === resolvedBrgy,
@@ -1454,6 +1466,22 @@ function EBlotter() {
 
   const updateCaseDetail = (field, value) =>
     setCaseDetail((prev) => ({ ...prev, [field]: value }));
+
+  const updateAssignedOfficer = (i, value) => {
+    setAssignedOfficers((prev) => {
+      const updated = [...prev];
+      updated[i] = value;
+      return updated;
+    });
+  };
+
+  const addAssignedOfficerField = () => {
+    setAssignedOfficers((prev) => [...prev, ""]);
+  };
+
+  const removeAssignedOfficerField = (i) => {
+    setAssignedOfficers((prev) => prev.filter((_, idx) => idx !== i));
+  };
   const resetForm = () => {
     setOffenses([
       {
@@ -1477,6 +1505,7 @@ function EBlotter() {
     setNewTypeOfPlaceInput("");
     setShowAddMobileUnitInput(false);
     setNewMobileUnitInput("");
+    setAssignedOfficers([]);
 
     setCaseDetail({
       incident_type: "",
@@ -1561,6 +1590,29 @@ function EBlotter() {
   };
 
   const handleSubmit = async () => {
+    // Block immediately if a live duplicate-name check already flagged an
+    // error on one of the inline "+ Others" inputs — don't call the
+    // create/reactivate endpoint or submit the report while a duplicate
+    // name is showing, even if the backend would otherwise accept it
+    // (e.g. by silently reactivating a soft-deleted entry).
+    if (
+      (showAddModusInput && fieldErrors.modus) ||
+      (showAddMobileUnitInput && fieldErrors.assigned_mobile_id) ||
+      (showAddTypeOfOperationInput && fieldErrors.type_of_place)
+    ) {
+      showReactToast(
+        "Please fix the duplicate entry before submitting.",
+        "error",
+      );
+      setTimeout(() => {
+        const firstError = document.querySelector(".eb-modal-input.error");
+        if (firstError) {
+          firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      }, 100);
+      return;
+    }
+
     // If the user typed a new modus but never clicked "Add", resolve it now
     // instead of losing what they typed or submitting with no modus selected.
     // Capture the returned id directly — offenseSelectedModus state won't have
@@ -1633,6 +1685,9 @@ function EBlotter() {
       finalCaseDetail.assigned_mobile_id = effectiveMobileUnitId
         ? parseInt(effectiveMobileUnitId, 10)
         : null;
+      finalCaseDetail.assigned_officers = assignedOfficers
+        .map((name) => name.trim())
+        .filter(Boolean);
 
       // crime_reports_v2 field renames
       finalCaseDetail.crime_type = finalCaseDetail.incident_type;
@@ -2109,6 +2164,20 @@ function EBlotter() {
                         </div>
 
                         <div className="eb-view-item">
+                          <span className="eb-view-label">
+                            Officers on Duty:
+                          </span>
+                          <span className="eb-view-value">
+                            {assignedOfficers.filter((n) => n && n.trim())
+                              .length > 0
+                              ? assignedOfficers
+                                  .filter((n) => n && n.trim())
+                                  .join(", ")
+                              : "—"}
+                          </span>
+                        </div>
+
+                        <div className="eb-view-item">
                           <span className="eb-view-label">Coordinates:</span>
                           <span className="eb-view-value">
                             {caseDetail.lat && caseDetail.lng
@@ -2176,7 +2245,7 @@ function EBlotter() {
                   <div className="eb-modal-form-grid">
                     {/* ── ROW 1: OFFENSE CLASSIFICATION ── */}
                     <div className="eb-modal-form-group">
-                      <label className="eb-modal-label">Crime Type *</label>
+                      <label className="eb-modal-label">Crime Type<span className="eb-required">*</span></label>
                       <select
                         className={`eb-modal-input ${fieldErrors.incident_type ? "error" : ""}`}
                         value={caseDetail.incident_type}
@@ -2370,8 +2439,8 @@ function EBlotter() {
                     {/* ── ROW 2: CASE ADMIN ── */}
                     <div className="eb-modal-form-group">
                       <label className="eb-modal-label">
-                        Date & Time of Commission *
-                      </label>
+  Date & Time of Commission<span className="eb-required">*</span>
+</label>
                       <input
                         type="datetime-local"
                         className={`eb-modal-input ${fieldErrors.date_time_commission ? "error" : ""}`}
@@ -2398,8 +2467,8 @@ function EBlotter() {
 
                     <div className="eb-modal-form-group">
                       <label className="eb-modal-label">
-                        Date & Time Reported *
-                      </label>
+  Date & Time Reported<span className="eb-required">*</span>
+</label>
                       <input
                         type="datetime-local"
                         className={`eb-modal-input ${fieldErrors.date_time_reported ? "error" : ""}`}
@@ -2433,7 +2502,7 @@ function EBlotter() {
                         }}
                       >
                         <label className="eb-modal-label">
-                          Assigned Mobile Unit
+                          Assigned Mobile Unit<span className="eb-required">*</span>
                         </label>
                         {showAddMobileUnitInput && (
                           <button
@@ -2529,6 +2598,60 @@ function EBlotter() {
 
                     <div className="eb-modal-form-group"></div>
 
+                    <div
+                      className="eb-modal-form-group"
+                      style={{ gridColumn: "span 4" }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <label className="eb-modal-label">
+                          Officers on Duty (optional)
+                        </label>
+                        
+                      </div>
+                      <div className="eb-officer-list">
+                        {assignedOfficers.map((name, i) => (
+                          <div key={i} className="eb-officer-row">
+                            <input
+                              type="text"
+                              className="eb-modal-input eb-officer-input"
+                              placeholder={`Officer ${i + 1} name`}
+                              value={name}
+                              maxLength="100" // limits officer name length
+                              onChange={(e) =>
+                                updateAssignedOfficer(i, e.target.value)
+                              }
+                            />
+                            <span className="eb-officer-char-count">
+                              {name.length}/100
+                            </span>
+                            <button
+                              type="button"
+                              className="eb-officer-remove-btn"
+                              onClick={() => removeAssignedOfficerField(i)}
+                              title="Remove officer"
+                            >
+                              &times;
+                            </button>
+                          </div>
+                        ))}
+                        {assignedOfficers.length < 5 && ( // cap officer rows at 5
+                          <button
+                            type="button"
+                            className="eb-officer-add-btn"
+                            onClick={addAssignedOfficerField}
+                          >
+                            + Add Officer
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
                     {/* ── LOCATION DIVIDER ── */}
                     <div
                       className="eb-group-divider"
@@ -2539,7 +2662,7 @@ function EBlotter() {
 
                     {/* ── ROW 3: LOCATION ── */}
                     <div className="eb-modal-form-group">
-                      <label className="eb-modal-label">Region *</label>
+                      <label className="eb-modal-label">Region<span className="eb-required">*</span></label>
                       <select
                         className="eb-modal-input"
                         value="040000000"
@@ -2556,8 +2679,8 @@ function EBlotter() {
 
                     <div className="eb-modal-form-group">
                       <label className="eb-modal-label">
-                        District/Province *
-                      </label>
+  District/Province<span className="eb-required">*</span>
+</label>
                       <select
                         className="eb-modal-input"
                         value="042100000"
@@ -2574,8 +2697,8 @@ function EBlotter() {
 
                     <div className="eb-modal-form-group">
                       <label className="eb-modal-label">
-                        City/Municipality *
-                      </label>
+  City/Municipality<span className="eb-required">*</span>
+</label>
                       <select
                         className="eb-modal-input"
                         value="042103000"
@@ -2591,7 +2714,7 @@ function EBlotter() {
                     </div>
 
                     <div className="eb-modal-form-group">
-                      <label className="eb-modal-label">Barangay *</label>
+                      <label className="eb-modal-label">Barangay<span className="eb-required">*</span></label>
                       <select
                         className={`eb-modal-input ${fieldErrors.place_barangay ? "error" : ""}`}
                         value={caseDetail.place_barangay}
@@ -2666,8 +2789,8 @@ function EBlotter() {
                         }}
                       >
                         <label className="eb-modal-label">
-                          Type of Operation *
-                        </label>
+  Type of Operation<span className="eb-required">*</span>
+</label>
                         {showAddTypeOfOperationInput && (
                           <button
                             type="button"
@@ -3193,8 +3316,8 @@ function EBlotter() {
                         style={{ gridColumn: "span 4" }}
                       >
                         <label className="eb-modal-label">
-                          Specify Location *
-                        </label>
+  Specify Location<span className="eb-required">*</span>
+</label>
                         <input
                           type="text"
                           className={`eb-modal-input ${fieldErrors.place_barangay_other ? "error" : ""}`}

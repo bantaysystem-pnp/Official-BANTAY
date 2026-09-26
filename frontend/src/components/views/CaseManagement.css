@@ -97,6 +97,10 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.8px;
   margin-bottom: 8px;
+  display: flex;
+  align-items: flex-end;
+  min-height: 28px;
+  line-height: 1.3;
 }
 .cm-status-card-value {
   font-family: "Inter", sans-serif;

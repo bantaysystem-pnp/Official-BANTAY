@@ -432,14 +432,8 @@ const UserManagement = () => {
   const getRoleBadgeClass = (role) => {
     if (!role) return "um-role-default";
     const r = role.toLowerCase();
-    if (r === "technical administrator") return "um-role-technical";
     if (r.includes("administrator")) return "um-role-admin";
-    if (r.includes("investigator")) return "um-role-investigator";
-    if (r.includes("patrol")) return "um-role-patrol";
-    if (r.includes("captain")) return "um-role-captain"; // ← new
-    if (r.includes("official")) return "um-role-official"; // ← new
-    if (r.includes("barangay")) return "um-role-chairman";
-    return "um-role-default";
+    if (r.includes("user")) return "um-role-user";
   };
 
   const formatRoleLabel = (role) => {

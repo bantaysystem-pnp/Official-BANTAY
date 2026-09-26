@@ -130,11 +130,28 @@ input:focus-visible {
 
 .crmap-filterbar-inner {
   display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  row-gap: 12px;
+  flex-wrap: nowrap;
 }
 
+.crmap-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1 1 150px;
+  min-width: 130px;
+  max-width: 230px;
+}
+
+.crmap-filter-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 .crmap-filter-icon {
   color: var(--gray-500);
   display: flex;
@@ -170,20 +187,20 @@ input:focus-visible {
 
 .crmap-apply-btn {
   padding: 8px 20px;
-  background: var(--red-primary);
+  background: var(--navy-primary);
   color: white;
   border: none;
   border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
-  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  transition: background 0.2s;
+  font-family: "DM Sans", sans-serif;
+  transition: background 0.18s;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-
-.crmap-apply-btn:hover {
-  background: var(--red-dark);
-}
+.crmap-apply-btn:hover { background: var(--navy-light); }
+.crmap-apply-btn-dirty { box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.22); }
 
 .crmap-clear-btn {
   padding: 8px 16px;
@@ -1384,11 +1401,17 @@ input:focus-visible {
   background: #ffffff;
   cursor: pointer;
   user-select: none;
-  width: 265px;
+  width: 100%;
   color-scheme: light;
   transition: border-color 0.15s;
   font-family: "DM Sans", sans-serif;
   font-size: 14px;
+}
+
+/* Mobile Unit selector — labels run longer than crime types/barangays,
+   so it gets more room before pills need to truncate. */
+.crmap-multisel-trigger-wide {
+  width: 100%;
 }
 
 /* ── Officer avatar marker (Life360 style) ─────────────────── */
@@ -1620,7 +1643,7 @@ input:focus-visible {
   font-weight: 600;
   white-space: nowrap;
   flex-shrink: 0;
-  max-width: 90px;          /* ← fixed cap */
+  max-width: 130px;         /* ← widened so unit names like "Mobile Patrol" fit */
   min-width: 0;
   overflow: hidden;
 }

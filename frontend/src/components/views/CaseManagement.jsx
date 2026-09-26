@@ -246,7 +246,7 @@ function CaseManagement() {
         else setSuspectMethods(data.data);
       }
     } catch (err) {
-      console.error("Fetch suspect apprehended methods error:", err);
+      console.error("Fetch suspect status methods error:", err);
     }
   };
 
@@ -777,40 +777,67 @@ function CaseManagement() {
             className="cm-btn cm-btn-secondary"
             onClick={openManageMethodsModal}
           >
-            Apprehension Lists
+            Suspect Status List
           </button>
         )}
       </div>
 
             {/* STATS CARDS — Admin only */}
       {isAdmin && (
-        <div className="cm-status-cards-grid">
+        <div
+          className="cm-status-cards-grid"
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            flexWrap: "nowrap",
+            gap: "16px",
+            overflowX: "auto",
+            overflowY: "hidden",
+            paddingBottom: "6px",
+            WebkitOverflowScrolling: "touch",
+          }}
+        >
           <div
             className="cm-status-card"
-            style={{ borderLeft: "4px solid #3b82f6" }}
+            style={{
+              borderLeft: "4px solid #3b82f6",
+              flex: "0 0 220px",
+              minWidth: "220px",
+            }}
           >
             <div className="cm-status-card-label">Total Cases</div>
             <div className="cm-status-card-value">{stats.total_cases}</div>
           </div>
           <div
             className="cm-status-card"
-            style={{ borderLeft: "4px solid #dc2626" }}
+            style={{
+              borderLeft: "4px solid #dc2626",
+              flex: "0 0 220px",
+              minWidth: "220px",
+            }}
           >
-            <div className="cm-status-card-label">Unassigned</div>
+            <div className="cm-status-card-label">Unassigned Cases</div>
             <div className="cm-status-card-value">{stats.unassigned_cases}</div>
           </div>
-          {stats.suspect_apprehended_breakdown.map((item, i) => (
+          {stats.suspect_apprehended_breakdown.map((item, i) => {
+            // Cycles through a fixed palette so any number of active methods
+            // gets a distinct color instead of collapsing into gray after index 2.
+            const palette = ["#f59e0b", "#16a34a", "#8b5cf6", "#0ea5e9", "#ec4899", "#14b8a6", "#f97316", "#64748b"];
+            return (
             <div
               key={item.label}
               className="cm-status-card"
               style={{
-                borderLeft: `4px solid ${["#f59e0b", "#16a34a", "#6b7280"][i] || "#6b7280"}`,
+                borderLeft: `4px solid ${palette[i % palette.length]}`,
+                flex: "0 0 220px",
+                minWidth: "220px",
               }}
             >
               <div className="cm-status-card-label">{item.label}</div>
               <div className="cm-status-card-value">{item.count}</div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -1010,7 +1037,7 @@ function CaseManagement() {
                 </div>
                 {/* Suspect Apprehended — same field/format as the detail modal */}
                 <div className="cm-case-meta-item">
-                  <span className="cm-case-meta-label">Suspect Apprehended:</span>
+                  <span className="cm-case-meta-label">Suspect Status:</span>
                   <span
                     style={{
                       color: c.suspect_apprehended?.trim() ? "inherit" : "#9ca3af",
@@ -1180,7 +1207,7 @@ function CaseManagement() {
 
               <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <label className="cm-modal-label">Suspect Apprehended</label>
+                  <label className="cm-modal-label">Suspect Status</label>
                   {showAddSuspectMethodInput && (
                     <button
                       type="button"
@@ -1303,7 +1330,7 @@ function CaseManagement() {
         <div className="cm-modal" style={{ zIndex: 1050 }}>
           <div className="cm-modal-content" style={{ maxWidth: "560px" }}>
             <div className="cm-modal-header">
-              <h2>Manage Apprehension Methods</h2>
+              <h2>Manage Suspect Status</h2>
               <span
                 className="cm-modal-close"
                 onClick={() => setShowManageMethodsModal(false)}
@@ -1777,7 +1804,7 @@ function CaseManagement() {
                     borderRight: "1px solid #f3f4f6",
                   }}
                 >
-                  <span className="cm-detail-label">Suspect Apprehended</span>
+                  <span className="cm-detail-label">Suspect Status</span>
                   <span
                     style={{
                       color: selectedCase.suspect_apprehended?.trim() ? "#111827" : "#9ca3af",

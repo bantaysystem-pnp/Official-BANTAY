@@ -233,23 +233,17 @@ const getStatistics = async (req, res) => {
     }
     const where = "WHERE " + conditions.join(" AND ");
 
-    // Seeds define which 2 methods get their own card — first 2 rows by id.
-    // Not "top by usage" — fixed to Police Response / Turn over by Barangay
-    // per the seed insert order, resolved by name so a rename doesn't break this.
-    const seedResult = await pool.query(
-      "SELECT method_name FROM suspect_apprehended_methods ORDER BY id ASC LIMIT 2",
+    // One card per ACTIVE method (alphabetical, same order as the Manage
+    // Suspect Status modal), computed from an actual GROUP BY instead of
+    // hardcoding which methods get a card. "Others" catches cases whose
+    // stored suspect_apprehended value belongs to a method that's since
+    // been deactivated or renamed, so counts never silently disappear.
+    const activeMethods = await pool.query(
+      "SELECT method_name FROM suspect_apprehended_methods WHERE is_active = true ORDER BY method_name ASC",
     );
-    const [method1 = null, method2 = null] = seedResult.rows.map(
-      (r) => r.method_name,
-    );
+    const methodNames = activeMethods.rows.map((r) => r.method_name);
 
-    // Params for the two named methods are appended after the filter params.
-    const method1Idx = p++;
-    params.push(method1);
-    const method2Idx = p++;
-    params.push(method2);
-
-    const result = await pool.query(
+    const overallResult = await pool.query(
       `SELECT
     COUNT(*) AS total_cases,
     COUNT(*) FILTER (WHERE c.status = 'Under Investigation') AS active_cases,
@@ -257,20 +251,41 @@ const getStatistics = async (req, res) => {
     COUNT(*) FILTER (WHERE c.status = 'Cleared') AS cleared_cases,
     COUNT(*) FILTER (WHERE c.status = 'Referred') AS referred_cases,
     COUNT(*) FILTER (WHERE c.assigned_io_name IS NULL OR c.assigned_io_name = '') AS unassigned_cases,
-    COUNT(*) FILTER (WHERE c.priority = 'High') AS high_priority_cases,
-    COUNT(*) FILTER (WHERE c.suspect_apprehended = $${method1Idx}::varchar) AS method1_count,
-    COUNT(*) FILTER (WHERE c.suspect_apprehended = $${method2Idx}::varchar) AS method2_count,
-    COUNT(*) FILTER (
-      WHERE c.suspect_apprehended IS NOT NULL
-        AND c.suspect_apprehended NOT IN ($${method1Idx}::varchar, $${method2Idx}::varchar)
-    ) AS others_count
+    COUNT(*) FILTER (WHERE c.priority = 'High') AS high_priority_cases
    FROM cases_v2 c
    INNER JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
    ${where}`,
       params,
     );
 
-    const row = result.rows[0];
+    const breakdownResult = await pool.query(
+      `SELECT c.suspect_apprehended, COUNT(*) AS cnt
+   FROM cases_v2 c
+   INNER JOIN crime_reports_v2 cr ON c.report_id = cr.report_id
+   ${where} AND c.suspect_apprehended IS NOT NULL
+   GROUP BY c.suspect_apprehended`,
+      params,
+    );
+
+    const countByValue = {};
+    let othersCount = 0;
+    for (const r of breakdownResult.rows) {
+      if (methodNames.includes(r.suspect_apprehended)) {
+        countByValue[r.suspect_apprehended] = parseInt(r.cnt) || 0;
+      } else {
+        othersCount += parseInt(r.cnt) || 0;
+      }
+    }
+
+    const suspectApprehendedBreakdown = methodNames.map((name) => ({
+      label: name,
+      count: countByValue[name] || 0,
+    }));
+    if (othersCount > 0) {
+      suspectApprehendedBreakdown.push({ label: "Others", count: othersCount });
+    }
+
+    const row = overallResult.rows[0];
     return res.status(200).json({
       success: true,
       data: {
@@ -281,11 +296,7 @@ const getStatistics = async (req, res) => {
         referred_cases: parseInt(row.referred_cases) || 0,
         unassigned_cases: parseInt(row.unassigned_cases) || 0,
         high_priority_cases: parseInt(row.high_priority_cases) || 0,
-        suspect_apprehended_breakdown: [
-          { label: method1 || "N/A", count: parseInt(row.method1_count) || 0 },
-          { label: method2 || "N/A", count: parseInt(row.method2_count) || 0 },
-          { label: "Others", count: parseInt(row.others_count) || 0 },
-        ],
+        suspect_apprehended_breakdown: suspectApprehendedBreakdown,
       },
     });
   } catch (error) {

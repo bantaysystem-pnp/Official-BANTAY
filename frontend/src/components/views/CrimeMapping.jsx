@@ -465,7 +465,7 @@ const CrimeTypeMultiSelect = ({ selected, onChange }) => {
               display: "flex",
               gap: 4,
               flexWrap: "nowrap",
-              flex: "0 0 auto", // ← fixed, no stretch
+              flex: "1 1 0%", // shrink to fit trigger width
               minWidth: 0,
               overflow: "hidden",
               alignItems: "center",
@@ -783,7 +783,146 @@ const BarangayMultiSelect = ({ selected, onChange }) => {
     </div>
   );
 };
-function CrimeMapping({ minimal = false, externalFilters = null, onFilterChange = null }) {
+
+const MobileUnitMultiSelect = ({ options, selected, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (id) =>
+    onChange(
+      selected.includes(id)
+        ? selected.filter((x) => x !== id)
+        : [...selected, id],
+    );
+
+  const removeOne = (id, e) => {
+    e.stopPropagation();
+    onChange(selected.filter((x) => x !== id));
+  };
+
+  const isAll = selected.length === 0;
+  const allSelected = options.length > 0 && selected.length === options.length;
+  const labelFor = (id) => options.find((o) => o.id === id)?.unit_name || id;
+
+  return (
+    <div
+      className="crmap-multisel-wrap"
+      ref={ref}
+      style={{ position: "relative" }}
+    >
+      <div
+        className="crmap-multisel-trigger crmap-multisel-trigger-wide"
+        onClick={() => setOpen((v) => !v)}
+      >
+        {isAll ? (
+          <span style={{ color: "#6b7280", fontSize: 14 }}>
+            All Mobile Units
+          </span>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              gap: 4,
+              flexWrap: "nowrap",
+              flex: "1 1 0%",
+              minWidth: 0,
+              overflow: "hidden",
+              alignItems: "center",
+            }}
+          >
+            {selected.slice(0, 2).map((id) => (
+              <span
+                key={id}
+                className="crmap-multisel-pill"
+                title={labelFor(id)}
+              >
+                <span className="crmap-multisel-pill-label">
+                  {labelFor(id)}
+                </span>
+                <span
+                  style={{
+                    marginLeft: 3,
+                    cursor: "pointer",
+                    opacity: 0.7,
+                    flexShrink: 0,
+                  }}
+                  onClick={(e) => removeOne(id, e)}
+                >
+                  ×
+                </span>
+              </span>
+            ))}
+            {selected.length > 2 && (
+              <span
+                className="crmap-multisel-pill"
+                style={{ background: "#e5e7eb" }}
+              >
+                +{selected.length - 2}
+              </span>
+            )}
+          </div>
+        )}
+        <span style={{ fontSize: 10, color: "#6b7280", flexShrink: 0 }}>
+          {open ? "▲" : "▼"}
+        </span>
+      </div>
+
+      {open && (
+        <div className="crmap-multisel-dropdown">
+          <div className="crmap-multisel-actions">
+            <button
+              className="crmap-multisel-action-btn"
+              onClick={() =>
+                onChange(allSelected ? [] : options.map((o) => o.id))
+              }
+            >
+              {allSelected ? "Clear all" : "Select all"}
+            </button>
+            {selected.length > 0 && (
+              <button
+                className="crmap-multisel-action-btn clear"
+                onClick={() => onChange([])}
+              >
+                Clear ({selected.length})
+              </button>
+            )}
+          </div>
+          {options.length === 0 && (
+            <div
+              style={{ padding: "8px 12px", fontSize: 12, color: "#9ca3af" }}
+            >
+              No mobile units found
+            </div>
+          )}
+          {options.map((o) => (
+            <label key={o.id} className="crmap-multisel-item">
+              <input
+                type="checkbox"
+                checked={selected.includes(o.id)}
+                onChange={() => toggle(o.id)}
+              />
+              <span>{o.unit_name}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+function CrimeMapping({
+  minimal = false,
+  externalFilters = null,
+  onFilterChange = null,
+}) {
   const rawUser = localStorage.getItem("user");
   const currentUser = rawUser ? JSON.parse(rawUser) : null;
   const isBarangayUser = currentUser?.user_type === "barangay";
@@ -795,6 +934,7 @@ function CrimeMapping({ minimal = false, externalFilters = null, onFilterChange 
     currentUser?.role_name === "Patrol" || currentUser?.role === "Patrol";
 
   const [boundaries, setBoundaries] = useState([]);
+  const [mobileUnitOptions, setMobileUnitOptions] = useState([]);
   const [mapReady, setMapReady] = useState(false);
   const [showClusters, setShowClusters] = useState(false);
   const [pins, setPins] = useState([]);
@@ -802,13 +942,13 @@ function CrimeMapping({ minimal = false, externalFilters = null, onFilterChange 
   const [geoJSONData, setGeoJSONData] = useState(null);
 
   const [heatmapMode, setHeatmapMode] = useState(false);
-// Overview always opens in heatmap mode, regardless of whatever
-// mode was last active on a previous mount/navigation.
-useEffect(() => {
-  if (minimal) {
-    setHeatmapMode(true);
-  }
-}, [minimal]);
+  // Overview always opens in heatmap mode, regardless of whatever
+  // mode was last active on a previous mount/navigation.
+  useEffect(() => {
+    if (minimal) {
+      setHeatmapMode(true);
+    }
+  }, [minimal]);
 
   const [heatGeoJSON, setHeatGeoJSON] = useState(null);
   const [clusterGeoJSON, setClusterGeoJSON] = useState(null);
@@ -856,81 +996,98 @@ useEffect(() => {
   // Single state
   // Single state
   const [filters, setFilters] = useState(() => {
-  if (minimal && externalFilters) {
+    if (minimal && externalFilters) {
+      return {
+        incident_types: externalFilters.incident_types ?? [],
+        date_from: externalFilters.date_from ?? defaultDateFrom,
+        date_to: externalFilters.date_to ?? defaultDateTo,
+        barangays:
+          isBarangayUser && userBarangay
+            ? [userBarangay]
+            : (externalFilters.barangays ?? []),
+        mobileUnits: externalFilters.mobileUnits ?? [],
+      };
+    }
     return {
+      incident_types: [],
+      date_from: defaultDateFrom,
+      date_to: defaultDateTo,
+      barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
+      mobileUnits: [],
+    };
+  });
+
+  const [appliedFilters, setAppliedFilters] = useState(() => {
+    if (minimal && externalFilters) {
+      return {
+        incident_types: externalFilters.incident_types ?? [],
+        date_from: externalFilters.date_from ?? defaultDateFrom,
+        date_to: externalFilters.date_to ?? defaultDateTo,
+        barangays:
+          isBarangayUser && userBarangay
+            ? [userBarangay]
+            : (externalFilters.barangays ?? []),
+        mobileUnits: externalFilters.mobileUnits ?? [],
+      };
+    }
+    return {
+      incident_types: [],
+      date_from: defaultDateFrom,
+      date_to: defaultDateTo,
+      barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
+      mobileUnits: [],
+    };
+  });
+
+  // Fetch trigger — only runs when this ref changes
+  const [fetchTrigger, setFetchTrigger] = useState(0);
+
+  // ── Keep in sync with the parent's (Overview) filters when embedded ──
+  const appliedFiltersRef = useRef(appliedFilters);
+  useEffect(() => {
+    appliedFiltersRef.current = appliedFilters;
+  }, [appliedFilters]);
+
+  const externalFiltersKey =
+    minimal && externalFilters ? JSON.stringify(externalFilters) : null;
+  const didInitFromExternalRef = useRef(false);
+
+  useEffect(() => {
+    if (!minimal || !externalFilters) return;
+
+    if (!didInitFromExternalRef.current) {
+      didInitFromExternalRef.current = true; // initial values already set above
+      return;
+    }
+
+    const lockedBarangays =
+      isPatrol && hasPatrolAssignment
+        ? patrolAssignedBarangays
+        : isBarangayUser && userBarangay
+          ? [userBarangay]
+          : (externalFilters.barangays ?? []);
+
+    const next = {
       incident_types: externalFilters.incident_types ?? [],
       date_from: externalFilters.date_from ?? defaultDateFrom,
       date_to: externalFilters.date_to ?? defaultDateTo,
-      barangays:
-        isBarangayUser && userBarangay ? [userBarangay] : externalFilters.barangays ?? [],
+      barangays: lockedBarangays,
+      mobileUnits: externalFilters.mobileUnits ?? [],
     };
-  }
-  return {
-    incident_types: [],
-    date_from: defaultDateFrom,
-    date_to: defaultDateTo,
-    barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
-  };
-});
 
-const [appliedFilters, setAppliedFilters] = useState(() => {
-  if (minimal && externalFilters) {
-    return {
-      incident_types: externalFilters.incident_types ?? [],
-      date_from: externalFilters.date_from ?? defaultDateFrom,
-      date_to: externalFilters.date_to ?? defaultDateTo,
-      barangays:
-        isBarangayUser && userBarangay ? [userBarangay] : externalFilters.barangays ?? [],
-    };
-  }
-  return {
-    incident_types: [],
-    date_from: defaultDateFrom,
-    date_to: defaultDateTo,
-    barangays: isBarangayUser && userBarangay ? [userBarangay] : [],
-  };
-});
+    if (JSON.stringify(next) === JSON.stringify(appliedFiltersRef.current))
+      return;
 
-// Fetch trigger — only runs when this ref changes
-const [fetchTrigger, setFetchTrigger] = useState(0);
-
-// ── Keep in sync with the parent's (Overview) filters when embedded ──
-const appliedFiltersRef = useRef(appliedFilters);
-useEffect(() => {
-  appliedFiltersRef.current = appliedFilters;
-}, [appliedFilters]);
-
-const externalFiltersKey = minimal && externalFilters ? JSON.stringify(externalFilters) : null;
-const didInitFromExternalRef = useRef(false);
-
-useEffect(() => {
-  if (!minimal || !externalFilters) return;
-
-  if (!didInitFromExternalRef.current) {
-    didInitFromExternalRef.current = true; // initial values already set above
-    return;
-  }
-
-  const lockedBarangays =
-    isPatrol && hasPatrolAssignment
-      ? patrolAssignedBarangays
-      : isBarangayUser && userBarangay
-        ? [userBarangay]
-        : externalFilters.barangays ?? [];
-
-  const next = {
-    incident_types: externalFilters.incident_types ?? [],
-    date_from: externalFilters.date_from ?? defaultDateFrom,
-    date_to: externalFilters.date_to ?? defaultDateTo,
-    barangays: lockedBarangays,
-  };
-
-  if (JSON.stringify(next) === JSON.stringify(appliedFiltersRef.current)) return;
-
-  setFilters(next);
-  setAppliedFilters(next);
-  setFetchTrigger((t) => t + 1);
-}, [externalFiltersKey, isPatrol, hasPatrolAssignment, isBarangayUser, userBarangay]);
+    setFilters(next);
+    setAppliedFilters(next);
+    setFetchTrigger((t) => t + 1);
+  }, [
+    externalFiltersKey,
+    isPatrol,
+    hasPatrolAssignment,
+    isBarangayUser,
+    userBarangay,
+  ]);
 
   const [activeTab, setActiveTab] = useState("legend");
   const [sidebarOpen, setSidebarOpen] = useState(!minimal);
@@ -1043,6 +1200,24 @@ useEffect(() => {
   }, []);
 
   useEffect(() => {
+    fetch(`${import.meta.env.VITE_API_URL}/crime-dashboard/mobile-units`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) {
+          const sorted = [...json.data].sort((a, b) =>
+            a.unit_name.localeCompare(b.unit_name, undefined, {
+              numeric: true,
+            }),
+          );
+          setMobileUnitOptions(sorted);
+        }
+      })
+      .catch((err) => console.warn("Failed to load mobile units:", err));
+  }, []);
+
+  useEffect(() => {
     if (!isBarangayUser || !userBarangay || !geoJSONData || !mapReady) {
       return;
     }
@@ -1087,6 +1262,8 @@ useEffect(() => {
           "barangays",
           appliedFilters.barangays.map((b) => b.toUpperCase()).join(","),
         );
+      if (appliedFilters.mobileUnits?.length)
+        params.append("mobile_units", appliedFilters.mobileUnits.join(","));
 
       const q = params.toString() ? `?${params}` : "";
       const headers = { Authorization: `Bearer ${getToken()}` };
@@ -1133,6 +1310,8 @@ useEffect(() => {
           "barangays",
           appliedFilters.barangays.map((b) => b.toUpperCase()).join(","),
         );
+      if (appliedFilters.mobileUnits?.length)
+        params.append("mobile_units", appliedFilters.mobileUnits.join(","));
 
       const q = params.toString() ? `?${params}` : "";
 
@@ -1455,7 +1634,6 @@ useEffect(() => {
     [geoJSONData, isBarangayUser, userBarangay],
   );
 
-
   const geoJSON = buildGeoJSON();
 
   const fillLayer = {
@@ -1593,7 +1771,10 @@ useEffect(() => {
     if (isBarangayUser && activeTab === "at_risk") {
       setActiveTab("legend");
     }
-    if ((isBarangayUser || isInvestigator || !SHOW_PATROL_GPS) && activeTab === "officers") {
+    if (
+      (isBarangayUser || isInvestigator || !SHOW_PATROL_GPS) &&
+      activeTab === "officers"
+    ) {
       setActiveTab("legend");
     }
   }, [isBarangayUser, isInvestigator, activeTab]);
@@ -1656,208 +1837,221 @@ useEffect(() => {
 
       <div className="crmap-filterbar">
         <div className="crmap-filterbar-inner">
-          <div className="crmap-filter-icon">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-            </svg>
-          </div>
+          
 
-         <CrimeTypeMultiSelect
-  selected={filters.incident_types}
-  onChange={(val) => {
-    if (minimal) {
-      const next = { ...appliedFilters, incident_types: val };
-      setFilters(next);
-      setAppliedFilters(next);
-      setFetchTrigger((t) => t + 1);
-      onFilterChange?.({ crimeTypes: val });
-    } else {
-      setFilters((f) => ({ ...f, incident_types: val }));
-    }
-  }}
-/>
-
-          {isPatrol && hasPatrolAssignment ? (
-            <div className="crmap-fsel crmap-fsel-locked">
-              {patrolAssignedBarangays.length === 1
-                ? formatBarangayLabel(patrolAssignedBarangays[0])
-                : `${patrolAssignedBarangays.length} Assigned Barangays`}
-              <span
-                className="crmap-locked-icon"
-                title="Auto-filtered to your patrol assignment"
-              ></span>
-            </div>
-          ) : isBarangayUser && userBarangay ? (
-            <div className="crmap-fsel crmap-fsel-locked">
-              {formatBarangayLabel(userBarangay)}
-              <span className="crmap-locked-icon"></span>
-            </div>
-          ) : (
-  <BarangayMultiSelect
-    selected={filters.barangays}
-    onChange={(val) => {
-      if (minimal) {
-        const next = { ...appliedFilters, barangays: val };
-        setFilters(next);
-        setAppliedFilters(next);
-        setFetchTrigger((t) => t + 1);
-        onFilterChange?.({ barangays: val });
-      } else {
-        setFilters((f) => ({ ...f, barangays: val }));
-      }
-    }}
-  />
-)}
-{!minimal && (
-  <>
-          <div className="crmap-date-range">
-            <input
-              type="date"
-              className="crmap-fsel crmap-fsel-date"
-              value={filters.date_from}
-              max={(() => {
-                if (!filters.date_to) return getPHTDate(0);
-                const d = new Date(filters.date_to);
-                d.setDate(d.getDate() - 1);
-                return d.toISOString().slice(0, 10);
-              })()}
-              onChange={(e) => {
-                const from = e.target.value;
-                const autoTo =
-                  filters.date_to && filters.date_to > from
-                    ? filters.date_to
-                    : getPHTToday();
-                setFilters((f) => ({ ...f, date_from: from, date_to: autoTo }));
-              }}
-              onKeyDown={(e) => e.preventDefault()}
-              onPaste={(e) => e.preventDefault()}
-              onClick={(e) => {
-                if (e.target.showPicker) {
-                  try {
-                    e.target.showPicker();
-                  } catch {}
-                }
-              }}
-            />
-            <span className="crmap-date-arrow">→</span>
-            <input
-              type="date"
-              className="crmap-fsel crmap-fsel-date"
-              value={filters.date_to}
-              min={(() => {
-                if (!filters.date_from) return undefined;
-                const d = new Date(filters.date_from);
-                d.setDate(d.getDate() + 1);
-                return d.toISOString().slice(0, 10);
-              })()}
-              max={getPHTDate(0)}
-              onChange={(e) =>
-                setFilters((f) => ({ ...f, date_to: e.target.value }))
-              }
-              onKeyDown={(e) => e.preventDefault()}
-              onPaste={(e) => e.preventDefault()}
-              onClick={(e) => {
-                if (e.target.showPicker) {
-                  try {
-                    e.target.showPicker();
-                  } catch {}
+          <div className="crmap-filter-group">
+            <label className="crmap-filter-label">Crime Type</label>
+            <CrimeTypeMultiSelect
+              selected={filters.incident_types}
+              onChange={(val) => {
+                if (minimal) {
+                  const next = { ...appliedFilters, incident_types: val };
+                  setFilters(next);
+                  setAppliedFilters(next);
+                  setFetchTrigger((t) => t + 1);
+                  onFilterChange?.({ crimeTypes: val });
+                } else {
+                  setFilters((f) => ({ ...f, incident_types: val }));
                 }
               }}
             />
           </div>
 
-          <button
-            className="crmap-apply-btn"
-            onClick={() => {
-              // For patrol users, always use assigned barangays
-              const filtersToApply =
-                isPatrol && hasPatrolAssignment
-                  ? { ...filters, barangays: patrolAssignedBarangays }
-                  : filters;
+          <div className="crmap-filter-group">
+            <label className="crmap-filter-label">Barangay</label>
+            {isPatrol && hasPatrolAssignment ? (
+              <div className="crmap-fsel crmap-fsel-locked">
+                {patrolAssignedBarangays.length === 1
+                  ? formatBarangayLabel(patrolAssignedBarangays[0])
+                  : `${patrolAssignedBarangays.length} Assigned Barangays`}
+                <span
+                  className="crmap-locked-icon"
+                  title="Auto-filtered to your patrol assignment"
+                ></span>
+              </div>
+            ) : isBarangayUser && userBarangay ? (
+              <div className="crmap-fsel crmap-fsel-locked">
+                {formatBarangayLabel(userBarangay)}
+                <span className="crmap-locked-icon"></span>
+              </div>
+            ) : (
+              <BarangayMultiSelect
+                selected={filters.barangays}
+                onChange={(val) => {
+                  if (minimal) {
+                    const next = { ...appliedFilters, barangays: val };
+                    setFilters(next);
+                    setAppliedFilters(next);
+                    setFetchTrigger((t) => t + 1);
+                    onFilterChange?.({ barangays: val });
+                  } else {
+                    setFilters((f) => ({ ...f, barangays: val }));
+                  }
+                }}
+              />
+            )}
+          </div>
+          {!minimal && (
+            <>
+              <div className="crmap-filter-group">
+                <label className="crmap-filter-label">Mobile Unit</label>
+                <MobileUnitMultiSelect
+                  options={mobileUnitOptions}
+                  selected={filters.mobileUnits}
+                  onChange={(val) =>
+                    setFilters((f) => ({ ...f, mobileUnits: val }))
+                  }
+                />
+              </div>
+              <div className="crmap-date-range">
+                <input
+                  type="date"
+                  className="crmap-fsel crmap-fsel-date"
+                  value={filters.date_from}
+                  max={(() => {
+                    if (!filters.date_to) return getPHTDate(0);
+                    const d = new Date(filters.date_to);
+                    d.setDate(d.getDate() - 1);
+                    return d.toISOString().slice(0, 10);
+                  })()}
+                  onChange={(e) => {
+                    const from = e.target.value;
+                    const autoTo =
+                      filters.date_to && filters.date_to > from
+                        ? filters.date_to
+                        : getPHTToday();
+                    setFilters((f) => ({
+                      ...f,
+                      date_from: from,
+                      date_to: autoTo,
+                    }));
+                  }}
+                  onKeyDown={(e) => e.preventDefault()}
+                  onPaste={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    if (e.target.showPicker) {
+                      try {
+                        e.target.showPicker();
+                      } catch {}
+                    }
+                  }}
+                />
+                <span className="crmap-date-arrow">→</span>
+                <input
+                  type="date"
+                  className="crmap-fsel crmap-fsel-date"
+                  value={filters.date_to}
+                  min={(() => {
+                    if (!filters.date_from) return undefined;
+                    const d = new Date(filters.date_from);
+                    d.setDate(d.getDate() + 1);
+                    return d.toISOString().slice(0, 10);
+                  })()}
+                  max={getPHTDate(0)}
+                  onChange={(e) =>
+                    setFilters((f) => ({ ...f, date_to: e.target.value }))
+                  }
+                  onKeyDown={(e) => e.preventDefault()}
+                  onPaste={(e) => e.preventDefault()}
+                  onClick={(e) => {
+                    if (e.target.showPicker) {
+                      try {
+                        e.target.showPicker();
+                      } catch {}
+                    }
+                  }}
+                />
+              </div>
 
-              setAppliedFilters(filtersToApply);
-              setFetchTrigger((t) => t + 1);
+              <button
+                className={`crmap-apply-btn ${
+                  JSON.stringify(filters) !== JSON.stringify(appliedFilters)
+                    ? "crmap-apply-btn-dirty"
+                    : ""
+                }`}
+                onClick={() => {
+                  // For patrol users, always use assigned barangays
+                  const filtersToApply =
+                    isPatrol && hasPatrolAssignment
+                      ? { ...filters, barangays: patrolAssignedBarangays }
+                      : filters;
 
-              const selectedBarangays = filtersToApply.barangays;
-              if (selectedBarangays?.length > 0 && geoJSONData) {
-                const allCoords = [];
-                for (const brgy of selectedBarangays) {
-                  const feature = geoJSONData.features.find(
-                    (f) => f.properties.name_db === brgy,
-                  );
-                  if (!feature) continue;
-                  const coords =
-                    feature.geometry.type === "Polygon"
-                      ? feature.geometry.coordinates[0]
-                      : feature.geometry.coordinates[0][0];
-                  allCoords.push(...coords);
-                }
-                if (allCoords.length > 0 && mapRef.current) {
-                  const lngs = allCoords.map((c) => c[0]);
-                  const lats = allCoords.map((c) => c[1]);
-                  mapRef.current.fitBounds(
-                    [
-                      [Math.min(...lngs), Math.min(...lats)],
-                      [Math.max(...lngs), Math.max(...lats)],
-                    ],
-                    { padding: 60, duration: 1200 },
-                  );
-                }
-              } else if (!selectedBarangays?.length && mapRef.current) {
-                mapRef.current.flyTo({
-                  center: [120.964, 14.4341],
-                  zoom: 12,
-                  duration: 1200,
-                });
-              }
-            }}
-          >
-            Apply Filters
-          </button>
+                  setAppliedFilters(filtersToApply);
+                  setFetchTrigger((t) => t + 1);
 
-          {/* // REPLACE the entire crmap-clear-btn onClick: */}
-          <button
-            className="crmap-clear-btn"
-            onClick={() => {
-              const clearTo = getPHTToday();
-              const clearFrom = getPHTOneYearAgo();
-              const cleared = {
-                incident_types: [],
-                date_from: clearFrom,
-                date_to: clearTo,
-                barangays:
-                  isPatrol && hasPatrolAssignment
-                    ? patrolAssignedBarangays
-                    : isBarangayUser && userBarangay
-                      ? [userBarangay]
-                      : [],
-              };
-              setFilters(cleared);
-              setAppliedFilters(cleared);
-              if (!isBarangayUser && !(isPatrol && hasPatrolAssignment)) {
-                mapRef.current?.flyTo({
-                  center: [120.964, 14.4341],
-                  zoom: 12,
-                  duration: 800,
-                });
-              }
-              setFetchTrigger((t) => t + 1);
-            }}
-          >
-            ↺
-          </button>
-           </>
-)}
+                  const selectedBarangays = filtersToApply.barangays;
+                  if (selectedBarangays?.length > 0 && geoJSONData) {
+                    const allCoords = [];
+                    for (const brgy of selectedBarangays) {
+                      const feature = geoJSONData.features.find(
+                        (f) => f.properties.name_db === brgy,
+                      );
+                      if (!feature) continue;
+                      const coords =
+                        feature.geometry.type === "Polygon"
+                          ? feature.geometry.coordinates[0]
+                          : feature.geometry.coordinates[0][0];
+                      allCoords.push(...coords);
+                    }
+                    if (allCoords.length > 0 && mapRef.current) {
+                      const lngs = allCoords.map((c) => c[0]);
+                      const lats = allCoords.map((c) => c[1]);
+                      mapRef.current.fitBounds(
+                        [
+                          [Math.min(...lngs), Math.min(...lats)],
+                          [Math.max(...lngs), Math.max(...lats)],
+                        ],
+                        { padding: 60, duration: 1200 },
+                      );
+                    }
+                  } else if (!selectedBarangays?.length && mapRef.current) {
+                    mapRef.current.flyTo({
+                      center: [120.964, 14.4341],
+                      zoom: 12,
+                      duration: 1200,
+                    });
+                  }
+                }}
+              >
+                Apply Filters
+              </button>
+
+              {/* // REPLACE the entire crmap-clear-btn onClick: */}
+              <button
+                className="crmap-clear-btn"
+                onClick={() => {
+                  const clearTo = getPHTToday();
+                  const clearFrom = getPHTOneYearAgo();
+                  const cleared = {
+                    incident_types: [],
+                    date_from: clearFrom,
+                    date_to: clearTo,
+                    barangays:
+                      isPatrol && hasPatrolAssignment
+                        ? patrolAssignedBarangays
+                        : isBarangayUser && userBarangay
+                          ? [userBarangay]
+                          : [],
+                    mobileUnits: [],
+                  };
+                  setFilters(cleared);
+                  setAppliedFilters(cleared);
+                  if (!isBarangayUser && !(isPatrol && hasPatrolAssignment)) {
+                    mapRef.current?.flyTo({
+                      center: [120.964, 14.4341],
+                      zoom: 12,
+                      duration: 800,
+                    });
+                  }
+                  setFetchTrigger((t) => t + 1);
+                }}
+              >
+                ↺
+              </button>
+            </>
+          )}
         </div>
       </div>
-      
 
       <div className="crmap-body">
         <div className="crmap-map-wrap">
@@ -1951,7 +2145,6 @@ useEffect(() => {
               attributionControl={false}
               onZoom={(e) => setZoom(e.viewState.zoom)}
               onDblClick={handleMapDblClick}
-              
               doubleClickZoom={false}
               onMouseMove={(e) => {
                 if (hoveredOfficerRef.current) return; // ← reads ref, always current value
@@ -2260,8 +2453,6 @@ useEffect(() => {
                     </div>
                   </Marker>
                 ))}
-
-              
             </Map>
 
             {hoveredOfficer && (
@@ -2558,23 +2749,23 @@ useEffect(() => {
           </button>
 
           {!minimal && !heatmapMode && zoom < 13 && (
-  <div className="crmap-zoom-hint">
-    <svg
-      width="13"
-      height="13"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-    >
-      <circle cx="11" cy="11" r="8" />
-      <line x1="21" y1="21" x2="16.65" y2="16.65" />
-      <line x1="11" y1="8" x2="11" y2="14" />
-      <line x1="8" y1="11" x2="14" y2="11" />
-    </svg>
-    Zoom in to see individual crime pins
-  </div>
-)}
+            <div className="crmap-zoom-hint">
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                <line x1="11" y1="8" x2="11" y2="14" />
+                <line x1="8" y1="11" x2="14" y2="11" />
+              </svg>
+              Zoom in to see individual crime pins
+            </div>
+          )}
           <button
             className="crmap-sidebar-toggle"
             onClick={() => setSidebarOpen((o) => !o)}
@@ -2963,7 +3154,6 @@ useEffect(() => {
                                   zoom: 14,
                                   duration: 800,
                                 });
-                              
                               }}
                             >
                               <div

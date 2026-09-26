@@ -167,8 +167,8 @@
 }
 
 /* PRIMARY / SECONDARY / DANGER / SUCCESS BUTTONS */
-.too-btn-primary { padding: 12px 24px; background: var(--red-primary); color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
-.too-btn-primary:hover { background: var(--red-dark); }
+.too-btn-primary { padding: 12px 24px; background: var(--navy-primary); color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
+.too-btn-primary:hover { background: var(--navy-light); }
 
 .too-btn-secondary { padding: 12px 24px; background: var(--white); color: var(--gray-700); border: 1px solid var(--gray-300); border-radius: 6px; cursor: pointer; font-size: 14px; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
 .too-btn-secondary:hover { background: var(--gray-50); }
@@ -293,7 +293,7 @@
 .too-apply-btn {
   height: 38px;
   padding: 0 20px;
-  background: var(--red-primary);
+  background: var(--navy-primary);
   color: white;
   border: none;
   border-radius: 6px;
@@ -304,8 +304,8 @@
   transition: all 0.2s;
   white-space: nowrap;
 }
-.too-apply-btn:hover { background: var(--red-dark); }
-.too-apply-btn-dirty { box-shadow: 0 0 0 3px rgba(193, 39, 45, 0.22); }
+.too-apply-btn:hover { background: var(--navy-light); }
+.too-apply-btn-dirty { box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.22); }
 
 .too-reset-btn {
   height: 38px;

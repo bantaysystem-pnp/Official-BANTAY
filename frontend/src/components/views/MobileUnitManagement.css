@@ -116,8 +116,8 @@
 .mu-action-btn-restore:hover { background: rgba(16, 185, 129, 0.16); color: #047857; }
 
 /* PRIMARY / SECONDARY / DANGER / SUCCESS BUTTONS */
-.mu-btn-primary { padding: 12px 24px; background: var(--red-primary); color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
-.mu-btn-primary:hover { background: var(--red-dark); }
+.mu-btn-primary { padding: 12px 24px; background: var(--navy-primary); color: var(--white); border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
+.mu-btn-primary:hover { background: var(--navy-light); }
 
 .mu-btn-secondary { padding: 12px 24px; background: var(--white); color: var(--gray-700); border: 1px solid var(--gray-300); border-radius: 6px; cursor: pointer; font-size: 14px; font-family: "DM Sans", sans-serif; transition: all 0.2s; }
 .mu-btn-secondary:hover { background: var(--gray-50); }
@@ -153,9 +153,9 @@
 .mu-pagination-btn:disabled { opacity: 0.5; cursor: not-allowed; background: var(--gray-100); }
 .mu-pagination-current { padding: 8px 16px; color: var(--navy-primary); font-size: 14px; font-weight: 600; display: flex; align-items: center; }
 
-.mu-apply-btn { height: 38px; padding: 0 20px; background: var(--red-primary); color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-.mu-apply-btn:hover { background: var(--red-dark); }
-.mu-apply-btn-dirty { box-shadow: 0 0 0 3px rgba(193, 39, 45, 0.22); }
+.mu-apply-btn { height: 38px; padding: 0 20px; background: var(--navy-primary); color: white; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; font-family: "DM Sans", sans-serif; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.mu-apply-btn:hover { background: var(--navy-light); }
+.mu-apply-btn-dirty { box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.22); }
 
 .mu-reset-btn { height: 38px; width: 38px; padding: 0; border: 1px solid var(--gray-300); border-radius: 6px; background: var(--white); color: var(--gray-700); font-size: 16px; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .mu-reset-btn:hover { background: var(--gray-50); border-color: var(--navy-primary); color: var(--navy-primary); }

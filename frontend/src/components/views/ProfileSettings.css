@@ -90,13 +90,13 @@ body {
   background: var(--gray-50);
 }
 .ps-header-button-primary {
-  background: var(--red-primary);
+  background: var(--navy-primary);
   color: var(--white);
-  border-color: var(--red-primary);
+  border-color: var(--navy-primary);
 }
 .ps-header-button-primary:hover {
-  background: var(--red-dark);
-  border-color: var(--red-dark);
+  background: var(--navy-light);
+  border-color: var(--navy-light);
 }
 .ps-header-button-primary:disabled {
   background: var(--gray-400);
@@ -613,7 +613,7 @@ textarea.ps-form-input:disabled {
 .ps-error-container a {
   display: inline-block;
   padding: 12px 32px;
-  background: var(--red-primary);
+  background: var(--navy-primary);
   color: var(--white);
   text-decoration: none;
   border-radius: 6px;
@@ -621,7 +621,7 @@ textarea.ps-form-input:disabled {
   transition: all 0.2s ease;
 }
 .ps-error-container a:hover {
-  background: var(--red-dark);
+  background: var(--navy-light);
 }
 
 /* === FIELD-LEVEL ERROR MESSAGES === */

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
 import "./AuditLog.css";
 import LoadingModal from "../modals/LoadingModal";
+import { getUserFromToken } from "../../utils/auth";
 
 const ITEMS_PER_PAGE = 15;
 const API_URL = import.meta.env.VITE_API_URL;
@@ -400,10 +401,7 @@ const AuditLog = () => {
 
   const isDirty = JSON.stringify(draft) !== JSON.stringify(appliedFilters);
 
-  // Near the top of the AuditLog component, after the state declarations
-  const rawUser = localStorage.getItem("user");
-  const currentUser = rawUser ? JSON.parse(rawUser) : null;
-  const isRestricted = currentUser?.role !== "Administrator";
+  const isRestricted = getUserFromToken()?.role !== "Administrator";
 
   const closeExportPreview = () => {
     exportPreview?.revoke();

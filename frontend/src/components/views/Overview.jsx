@@ -315,7 +315,6 @@ const VBars = ({ segments }) => {
 };
 
 const DonutPanel = ({ segments }) => {
-  const total = segments.reduce((s, d) => s + d.value, 0);
   return (
     <div className="ov-donut-row">
       <Donut segments={segments} />
@@ -324,9 +323,7 @@ const DonutPanel = ({ segments }) => {
           <div className="ov-donut-legend-item" key={d.label}>
             <span className="ov-donut-dot" style={{ background: d.color }} />
             <span className="ov-donut-legend-label">{d.label}</span>
-            <span className="ov-donut-legend-val">
-              {total ? Math.round((d.value / total) * 100) : 0}%
-            </span>
+            <span className="ov-donut-legend-val">{d.value}</span>
           </div>
         ))}
       </div>
@@ -541,53 +538,62 @@ export default function Overview() {
         <div className="ov-loading">Loading overview…</div>
       ) : (
         <div className="ov-grid">
-          {/* KPI */}
-          <div className="ov-panel ov-area-kpi">
-            <div className="ov-panel-head">Total of Focus Crime</div>
-            <div className="ov-kpi-body">
-              <div className="ov-kpi-value">{totals.total}</div>
-              <div className="ov-kpi-mini-row">
-                <div className="ov-kpi-mini">
-                  <span
-                    className="ov-kpi-mini-val"
-                    style={{ color: STATUS_COLORS.solved }}
-                  >
-                    {totals.solved}
-                  </span>
-                  <span className="ov-kpi-mini-lbl">Solved</span>
-                </div>
-                <div className="ov-kpi-mini">
-                  <span
-                    className="ov-kpi-mini-val"
-                    style={{ color: STATUS_COLORS.cleared }}
-                  >
-                    {totals.cleared}
-                  </span>
-                  <span className="ov-kpi-mini-lbl">Cleared</span>
-                </div>
-                <div className="ov-kpi-mini">
-                  <span
-                    className="ov-kpi-mini-val"
-                    style={{ color: STATUS_COLORS.underInvestigation }}
-                  >
-                    {totals.ui}
-                  </span>
-                  <span className="ov-kpi-mini-lbl">Under Inv.</span>
+          {/* Top row: KPI / Focus Crime / Mobile Units / Prone Day — sized
+              independently via flex, so this row never touches the grid
+              columns the panels below share. */}
+          <div className="ov-area-toprow">
+            <div className="ov-panel ov-top-kpi">
+              <div className="ov-panel-head">Total of Focus Crime</div>
+              <div className="ov-kpi-body">
+                <div className="ov-kpi-value">{totals.total}</div>
+                <div className="ov-kpi-mini-row">
+                  <div className="ov-kpi-mini">
+                    <span
+                      className="ov-kpi-mini-val"
+                      style={{ color: STATUS_COLORS.solved }}
+                    >
+                      {totals.solved}
+                    </span>
+                    <span className="ov-kpi-mini-lbl">Solved</span>
+                  </div>
+                  <div className="ov-kpi-mini">
+                    <span
+                      className="ov-kpi-mini-val"
+                      style={{ color: STATUS_COLORS.cleared }}
+                    >
+                      {totals.cleared}
+                    </span>
+                    <span className="ov-kpi-mini-lbl">Cleared</span>
+                  </div>
+                  <div className="ov-kpi-mini">
+                    <span
+                      className="ov-kpi-mini-val"
+                      style={{ color: STATUS_COLORS.underInvestigation }}
+                    >
+                      {totals.ui}
+                    </span>
+                    <span className="ov-kpi-mini-lbl">Under Inv.</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Focus crime donut (bar version removed) */}
-          <div className="ov-panel ov-area-focusdonut">
-            <div className="ov-panel-head">Focus Crime</div>
-            <DonutPanel segments={focusCrimeDonut} />
-          </div>
+            <div className="ov-panel ov-top-focus">
+              <div className="ov-panel-head">Focus Crime</div>
+              <DonutPanel segments={focusCrimeDonut} />
+            </div>
 
-          {/* Mobile Units donut (new) */}
-          <div className="ov-panel ov-area-mobileunits">
-            <div className="ov-panel-head">Mobile Units</div>
-            <DonutPanel segments={mobileUnitsDonut} />
+            <div className="ov-panel ov-top-mobile">
+              <div className="ov-panel-head">Mobile Units</div>
+              <DonutPanel segments={mobileUnitsDonut} />
+            </div>
+
+            <div className="ov-panel ov-top-proneday">
+              <div className="ov-panel-head">Prone Day</div>
+              <VBars
+                segments={byDayRows.map((d) => ({ ...d, color: "#19a7e0" }))}
+              />
+            </div>
           </div>
 
           {/* Barangay ranking */}
@@ -637,7 +643,7 @@ export default function Overview() {
             </div>
           </div>
 
-          {/* Trend / clock / prone-day */}
+          {/* Trend / clock */}
           <div className="ov-panel ov-area-trends">
             <div className="ov-panel-head">Crime Trends</div>
             <div className="ov-linechart-wrap">
@@ -657,12 +663,6 @@ export default function Overview() {
                 color="#ec4899"
               />
             </div>
-          </div>
-          <div className="ov-panel ov-area-proneday">
-            <div className="ov-panel-head">Prone Day</div>
-            <VBars
-              segments={byDayRows.map((d) => ({ ...d, color: "#19a7e0" }))}
-            />
           </div>
 
           {/* Modus — now a ranked table, like Place of Commission */}

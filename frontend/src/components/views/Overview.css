@@ -95,12 +95,12 @@
   min-height: 0;
   display: grid;
 
-      grid-template-columns: 1.8fr 2.1fr 1.8fr 1.8fr 1.8fr 1.6fr 1.6fr;
+  grid-template-columns: 1.8fr 2.1fr 2.1fr 2.1fr 1.8fr 1.6fr 1.6fr;
 
-  grid-template-rows: 0.62fr 0.72fr 0.86fr 0.55fr;
+  grid-template-rows: 0.80fr 0.78fr 0.75fr 0.50fr;
 
   grid-template-areas:
-    "kpi     kpi    focusdonut mobileunits proneday proneday proneday"
+    "toprow  toprow toprow     toprow      toprow   toprow   toprow"
     "brgy    place  clock      clock       clock    map      map"
     "brgy    modus  trends     trends      trends   map      map"
     "blotter blotter blotter   blotter     blotter  map      map";
@@ -109,13 +109,23 @@
   padding: 6px;
 }
 
-.ov-area-kpi { grid-area: kpi; }
-.ov-area-focusdonut { grid-area: focusdonut; }
-.ov-area-mobileunits { grid-area: mobileunits; }
+/* Top row is its own flex row now — resizing KPI / Focus Crime /
+   Mobile Units / Prone Day never touches the grid columns the
+   rows below still share. */
+.ov-area-toprow {
+  grid-area: toprow;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.ov-top-kpi { flex: 3.9 1 0%; min-width: 0; }
+.ov-top-focus { flex: 2.3 1 0%; min-width: 0; }
+.ov-top-mobile { flex: 2.2 1 0%; min-width: 0; }
+.ov-top-proneday { flex: 5 1 0%; min-width: 0; }
+
 .ov-area-brgy { grid-area: brgy; }
 .ov-area-trends { grid-area: trends; }
 .ov-area-clock { grid-area: clock; }
-.ov-area-proneday { grid-area: proneday; }
 .ov-area-modus { grid-area: modus; }
 .ov-area-place { grid-area: place; }
 .ov-area-map { grid-area: map; }

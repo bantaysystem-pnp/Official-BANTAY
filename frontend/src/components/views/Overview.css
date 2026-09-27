@@ -37,14 +37,6 @@
   gap: 10px;
 }
 
-.ov-header-eyebrow {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: #19a7e0;
-}
-
 .ov-header-left h1 {
   font-family: "Inter", sans-serif;
   font-size: 15px;
@@ -93,35 +85,47 @@
   color: #9fb8d9;
 }
 
-/* ── main grid ── */
-/* ── main grid ── */
+/* ── main grid ──
+   Focus Crime bar graph and Mode of Reporting panels have been removed.
+   The freed columns are now: Focus Crime donut spans the two columns it
+   used to share with the bar graph, and Mobile Units (new) takes the
+   column that used to be Mode of Reporting. */
 .ov-grid {
   flex: 1;
   min-height: 0;
   display: grid;
 
-  grid-template-columns: 1.8fr 1.8fr 2.4fr 2.1fr 2.1fr 1.7fr 1.7fr;
+  grid-template-columns: 1.8fr 2.1fr 2.1fr 2.1fr 1.8fr 1.6fr 1.6fr;
 
-  grid-template-rows: 0.62fr 0.72fr 0.86fr 0.55fr;
+  grid-template-rows: 0.80fr 0.78fr 0.75fr 0.50fr;
 
   grid-template-areas:
-    "kpi     kpi     focus   focusdonut  mode      status  status"
-    "brgy    trends  trends  clock       clock     map     map"
-    "brgy    place   modus   proneday    proneday  map     map"
-    "blotter blotter blotter blotter     blotter   map     map";
+    "toprow  toprow toprow     toprow      toprow   toprow   toprow"
+    "brgy    place  clock      clock       clock    map      map"
+    "brgy    modus  trends     trends      trends   map      map"
+    "blotter blotter blotter   blotter     blotter  map      map";
 
   gap: 6px;
   padding: 6px;
 }
 
-.ov-area-kpi { grid-area: kpi; }
-.ov-area-focus { grid-area: focus; }
-.ov-area-status { grid-area: status; }
-.ov-area-mode { grid-area: mode; }
+/* Top row is its own flex row now — resizing KPI / Focus Crime /
+   Mobile Units / Prone Day never touches the grid columns the
+   rows below still share. */
+.ov-area-toprow {
+  grid-area: toprow;
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+}
+.ov-top-kpi { flex: 3.9 1 0%; min-width: 0; }
+.ov-top-focus { flex: 2.3 1 0%; min-width: 0; }
+.ov-top-mobile { flex: 2.2 1 0%; min-width: 0; }
+.ov-top-proneday { flex: 5 1 0%; min-width: 0; }
+
 .ov-area-brgy { grid-area: brgy; }
 .ov-area-trends { grid-area: trends; }
 .ov-area-clock { grid-area: clock; }
-.ov-area-proneday { grid-area: proneday; }
 .ov-area-modus { grid-area: modus; }
 .ov-area-place { grid-area: place; }
 .ov-area-map { grid-area: map; }
@@ -156,16 +160,6 @@
   white-space: nowrap;
 }
 
-.ov-tag-sample {
-  font-size: 8px;
-  font-weight: 700;
-  color: #f59e0b;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
-  border-radius: 8px;
-  padding: 1px 5px;
-}
-
 .ov-count-tag {
   font-size: 8.5px;
   font-weight: 700;
@@ -180,7 +174,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 4px 8px 6px;
+  padding: 3px 8px 4px;
   scrollbar-width: thin;
   scrollbar-color: rgba(25, 167, 224, 0.35) transparent;
 }
@@ -194,10 +188,10 @@
 .ov-kpi-body {
   flex: 1;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   align-items: center;
-  justify-content: space-evenly;
-  gap: 24px;
+  justify-content: center;
+  gap: 10px;
   padding: 4px 20px;
 }
 .ov-kpi-value {
@@ -232,58 +226,20 @@
   letter-spacing: 0.05em;
 }
 
-/* ── horizontal bars (Focus Crime / Prone Day) ── */
-.ov-hbars {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  justify-content: center;
-  height: 100%;
-}
-.ov-hbar-row {
-  display: grid;
-  grid-template-columns: 76px 1fr 26px;
-  align-items: center;
-  gap: 6px;
-}
-.ov-hbar-label {
-  font-size: 9.5px;
-  color: #9fb8d9;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ov-hbar-track {
-  height: 7px;
-  background: rgba(255, 255, 255, 0.06);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.ov-hbar-fill {
-  height: 100%;
-  border-radius: 2px;
-}
-.ov-hbar-val {
-  font-size: 9.5px;
-  font-weight: 700;
-  color: #eaf2fb;
-  text-align: right;
-}
-
 /* ── donuts ── */
 .ov-donut-row {
   flex: 1;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 10px 8px 6px;
   min-height: 0;
 }
 .ov-donut-legend {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   align-content: center;
-  gap: 2px 10px;
+  gap: 3px 10px;
   flex: 1;
   min-width: 0;
 }
@@ -302,6 +258,8 @@
   flex-shrink: 0;
 }
 .ov-donut-legend-label {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -365,7 +323,7 @@
 .ov-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 9.5px;
+  font-size: 8.5px;
 }
 .ov-table thead tr {
   position: sticky;
@@ -375,22 +333,23 @@
   z-index: 1;
 }
 .ov-table th {
-  padding: 3px 6px;
+  padding: 2px 6px;
   text-align: left;
-  font-size: 8.5px;
+  font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 .ov-table td {
-  padding: 3px 6px;
+  padding: 2px 6px;
   color: #cdd9ea;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 160px;
+  line-height: 1.25;
 }
 .ov-table tbody tr:hover {
   background: rgba(255, 255, 255, 0.035);

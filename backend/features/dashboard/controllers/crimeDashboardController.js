@@ -1,5 +1,5 @@
 // backend/features/dashboard/controllers/crimeDashboardController.js
-
+//CLIENT repo
 const pool = require("../../../config/database");
 
 const { expandBarangays } = require("../../../shared/utils/barangays");
@@ -420,6 +420,42 @@ const queryModus = async (where, params, nextP) => {
   }));
 };
 
+// ─── queryMobileUnits — NEW ────────────────────────────────────────────────
+// Powers the Overview page's "Mobile Units" donut: how many focus-crime
+// reports were assigned to each mobile patrol unit. Follows the exact same
+// shape/pattern as queryPlace/queryBarangay (LEFT JOIN + per-crime tally +
+// total count, sorted desc), so the frontend can treat it identically.
+// Reports with no assigned unit (assigned_mobile_id IS NULL) are excluded
+// rather than shown as an "Unassigned" slice — that's a product decision
+// that can change later if needed.
+const queryMobileUnits = async (where, params, nextP) => {
+  const result = await pool.query(
+    `SELECT
+      TRIM(mu.unit_name) AS unit,
+      UPPER(cr.crime_type) AS crime,
+      COUNT(*) AS count
+     ${BASE_FROM}
+     LEFT JOIN mobile_units mu ON mu.id = cr.assigned_mobile_id
+     ${where}
+     AND UPPER(cr.crime_type) = ANY($${nextP}::text[])
+       AND cr.assigned_mobile_id IS NOT NULL
+       AND mu.unit_name IS NOT NULL
+       AND TRIM(mu.unit_name) <> ''
+     GROUP BY TRIM(mu.unit_name), UPPER(cr.crime_type)
+     ORDER BY count DESC`,
+    [...params, INDEX_CRIMES],
+  );
+
+  const map = {};
+  result.rows.forEach((r) => {
+    if (!map[r.unit]) map[r.unit] = { unit: r.unit, count: 0 };
+    map[r.unit][r.crime] = parseInt(r.count);
+    map[r.unit].count += parseInt(r.count);
+  });
+
+  return Object.values(map).sort((a, b) => b.count - a.count);
+};
+
 const queryCompleteData = async (where, params, nextP) => {
   const result = await pool.query(
     `SELECT
@@ -458,6 +494,27 @@ const queryCompleteData = async (where, params, nextP) => {
 };
 
 // ─── /overview — ALL 7 queries in one round trip ──────────────────────────────
+// HELPER: Get assigned barangays for a patrol user's ongoing schedule
+const getPatrolUserBarangays = async (userId) => {
+  try {
+    const result = await pool.query(`
+      SELECT DISTINCT par.barangay
+      FROM patrol_assignment pa
+      JOIN patrol_assignment_patroller pap ON pa.patrol_id = pap.patrol_id
+      JOIN active_patroller ap ON pap.active_patroller_id = ap.active_patroller_id
+      JOIN patrol_assignment_route par ON pa.patrol_id = par.patrol_id
+      WHERE ap.officer_id = $1
+        AND pa.start_date <= CURRENT_DATE 
+        AND pa.end_date >= CURRENT_DATE
+        AND par.stop_order <= 0
+        AND par.barangay IS NOT NULL
+    `, [userId]);
+    return result.rows.map(r => r.barangay.toUpperCase());
+  } catch (error) {
+    console.error("getPatrolUserBarangays error:", error);
+    return [];
+  }
+};
 
 // ─── MOBILE UNITS — for filter dropdown ───────────────────────────────────────
 const getMobileUnits = async (req, res) => {
@@ -489,6 +546,7 @@ const getOverview = async (req, res) => {
   barangay,
   modus,
   completeData,
+  mobileUnits,
 ] = await Promise.all([
   querySummary(where, params, nextP),
   queryTrends(where, params, nextP, granularity, date_from, date_to),
@@ -498,6 +556,7 @@ const getOverview = async (req, res) => {
   queryBarangay(where, params, nextP),
   queryModus(where, params, nextP),
   queryCompleteData(where, params, nextP),
+  queryMobileUnits(where, params, nextP),
 ]);
 
 // ── Previous month summary for "this_month" delta ─────────────────────────
@@ -533,6 +592,7 @@ res.json({
   modus,
   completeData,
   prevSummary,
+  mobileUnits,
 });
   } catch (err) {
     console.error("getOverview error:", err);
@@ -637,6 +697,18 @@ const getCompleteData = async (req, res) => {
   }
 };
 
+// ─── Individual endpoint for Mobile Units donut (mirrors getByPlace etc.) ─────
+const getByMobileUnit = async (req, res) => {
+  try {
+    const { where, params, nextP } = buildWhere(req.query);
+    const data = await queryMobileUnits(where, params, nextP);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error("getByMobileUnit error:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getOverview,
   getSummary,
@@ -647,5 +719,6 @@ module.exports = {
   getByBarangay,
   getByModus,
   getCompleteData,
-  getMobileUnits,
+  getPatrolUserBarangays,
+  getMobileUnits, // ← add this
 };

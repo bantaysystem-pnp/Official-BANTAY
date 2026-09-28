@@ -203,9 +203,11 @@
   line-height: 1;
   flex-shrink: 0;
 }
+/* KPI mini stats row: wider gap for larger text */
+/* KPI mini stats row: wider gap for larger text */
 .ov-kpi-mini-row {
   display: flex;
-  gap: 20px;
+  gap: 32px;
   margin-top: 0;
 }
 .ov-kpi-mini {
@@ -214,13 +216,16 @@
   align-items: center;
   gap: 1px;
 }
+/* KPI mini stat number */
 .ov-kpi-mini-val {
   font-family: "Inter", sans-serif;
-  font-size: 14px;
+  font-size: 30px;
   font-weight: 700;
+  line-height: 1;
 }
+/* KPI mini stat label */
 .ov-kpi-mini-lbl {
-  font-size: 7.5px;
+  font-size: 13px;
   color: #9fb8d9;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -637,4 +642,47 @@
 .ov-linechart-wrap svg {
   width: 100%;
   height: 100%;
+}
+
+/* Map filter bar: dark theme to match the overview panels */
+.ov-map-inner .crmap-filterbar {
+  background: linear-gradient(180deg, #0b2447 0%, #081c3a 100%) !important;
+  border: 1px solid rgba(25, 167, 224, 0.28);
+  border-left: 3px solid #19a7e0;
+  box-shadow: none;
+}
+
+/* Filter labels (CRIME TYPE / BARANGAY) */
+.ov-map-inner .crmap-filterbar label,
+.ov-map-inner .crmap-filter-label {
+  color: #9fb8d9 !important;
+}
+
+/* Dropdown triggers and selects */
+.ov-map-inner .crmap-fsel,
+.ov-map-inner .crmap-fsel-date,
+.ov-map-inner .crmap-fsel-locked,
+.ov-map-inner .crmap-multisel-trigger {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(25, 167, 224, 0.35) !important;
+  color: #eaf2fb !important;
+  color-scheme: dark;
+}
+
+/* Text inside the multiselect triggers */
+.ov-map-inner .crmap-multisel-trigger input,
+.ov-map-inner .crmap-multisel-trigger span {
+  background: transparent !important;
+  color: #eaf2fb !important;
+}
+.ov-map-inner .crmap-multisel-trigger input::placeholder {
+  color: #9fb8d9;
+}
+
+/* Dropdown menus that open below the triggers */
+.ov-map-inner .crmap-multisel-menu,
+.ov-map-inner .crmap-multisel-dropdown {
+  background: #0b2447 !important;
+  border: 1px solid rgba(25, 167, 224, 0.35) !important;
+  color: #eaf2fb !important;
 }

@@ -220,14 +220,23 @@ const LineChartLabeled = ({
         strokeWidth="1"
       />
       <polyline points={points} fill="none" stroke={color} strokeWidth="2" />
+      {/* Data points with value label above each dot */}
       {data.map((v, i) => (
-        <circle
-          key={i}
-          cx={padL + i * stepX}
-          cy={yFor(v)}
-          r="2.2"
-          fill={color}
-        />
+        <React.Fragment key={i}>
+          <circle cx={padL + i * stepX} cy={yFor(v)} r="2.2" fill={color} />
+          {/* Value label, hidden for zero counts */}
+          {v > 0 && (
+            <text
+              x={padL + i * stepX}
+              y={yFor(v) - 4}
+              fontSize="7"
+              fill="#e6f0ff"
+              textAnchor="middle"
+            >
+              {v}
+            </text>
+          )}
+        </React.Fragment>
       ))}
       {labels.map((lab, i) =>
         lab && i % labelEvery === 0 ? (

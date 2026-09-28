@@ -498,8 +498,9 @@ export default function Overview() {
   );
   const hourlyLabels = useMemo(
     () =>
-      dashData.hourly.map((h) => {
-        const hr = typeof h.hour === "number" ? h.hour : parseInt(h.hour, 10);
+      dashData.hourly.map((h, i) => {
+        // Use row index as the 24h hour, since backend hour values are 12h-style
+        const hr = i;
         if (Number.isNaN(hr)) return "";
         const period = hr >= 12 ? "PM" : "AM";
         const display = hr % 12 === 0 ? 12 : hr % 12;

@@ -909,3 +909,33 @@ input[type="date"].cm-filter-input::-webkit-calendar-picker-indicator {
   .cm-priority-badge,
   .cm-status-badge { font-size: 11px; padding: 4px 10px; }
 }
+
+/* Skeleton card: neutral left border instead of the colored accent */
+.cm-skeleton-card {
+  border-left: 4px solid #e5e7eb;
+}
+
+/* Shared shimmer block */
+.cm-skeleton {
+  background: linear-gradient(90deg, #eceef1 25%, #f6f7f9 50%, #eceef1 75%);
+  background-size: 200% 100%;
+  animation: cm-shimmer 1.2s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* Placeholder for the label text (spacing now comes from .cm-status-card-label) */
+.cm-skeleton-label {
+  width: 90px;
+  height: 10px;
+}
+
+/* Placeholder for the big number (1em = the value's font-size, so it scales on mobile) */
+.cm-skeleton-value {
+  width: 1.4em;
+  height: 1em;
+}
+
+@keyframes cm-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

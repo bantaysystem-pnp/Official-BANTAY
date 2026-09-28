@@ -22,6 +22,8 @@ function CaseManagement() {
     suspect_apprehended_breakdown: [],
   });
   const [loading, setLoading] = useState(false);
+  // True until the stats endpoint responds; drives the card skeletons
+  const [statsLoading, setStatsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
 
   // Applied filters (used for actual fetching)
@@ -193,6 +195,8 @@ function CaseManagement() {
   };
 
   const fetchStats = async (filterOverride = null) => {
+    // Show skeleton cards while stats are (re)fetching
+    setStatsLoading(true);
     try {
       const f = filterOverride !== null ? filterOverride : filters;
       const params = new URLSearchParams();
@@ -208,6 +212,9 @@ function CaseManagement() {
       if (data.success) setStats(data.data);
     } catch (err) {
       console.error(err);
+    } finally {
+      // Hide skeleton whether the request succeeded or failed
+      setStatsLoading(false);
     }
   };
 
@@ -774,6 +781,25 @@ function CaseManagement() {
             WebkitOverflowScrolling: "touch",
           }}
         >
+          {/* Skeleton placeholders while stats load */}
+          {statsLoading ? (
+            Array.from({ length: 7 }).map((_, i) => (
+              <div
+                key={i}
+                className="cm-status-card cm-skeleton-card"
+                style={{ flex: "0 0 220px", minWidth: "220px" }}
+              >
+                {/* Reuse real label/value wrappers so skeleton height matches real cards */}
+                <div className="cm-status-card-label">
+                  <div className="cm-skeleton cm-skeleton-label" />
+                </div>
+                <div className="cm-status-card-value">
+                  <div className="cm-skeleton cm-skeleton-value" />
+                </div>
+              </div>
+            ))
+          ) : (
+            <>
           <div
             className="cm-status-card"
             style={{
@@ -815,6 +841,8 @@ function CaseManagement() {
             </div>
             );
           })}
+            </>
+          )}
         </div>
 
       {/* FILTERS */}

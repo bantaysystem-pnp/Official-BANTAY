@@ -917,9 +917,9 @@ function CaseManagement() {
           value={draftFilters.sort_updated || ""}
           onChange={handleFilterChange}
         >
-          <option value="">Last Updated: Default</option>
-          <option value="newest">Last Updated: Newest</option>
-          <option value="oldest">Last Updated: Oldest</option>
+      <option value="">Updated: Default</option>
+<option value="newest">Newest</option>
+<option value="oldest">Oldest</option>
         </select>
         <input
           type="date"
@@ -952,7 +952,7 @@ function CaseManagement() {
             boxShadow: isDirty ? "0 0 0 3px rgba(193,39,45,0.22)" : "none",
           }}
         >
-          Apply Filters
+          Apply
         </button>
         <button
           className="cm-btn cm-btn-secondary"

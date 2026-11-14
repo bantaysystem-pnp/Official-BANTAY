@@ -332,8 +332,8 @@ body {
   border-radius: 8px;
   padding: 16px 20px;
   margin-bottom: 20px;
-  display: flex;
-  flex-wrap: wrap;  
+    display: grid;                                                
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));   
   gap: 12px;
   align-items: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
@@ -341,9 +341,17 @@ body {
 }
 .cm-filter-bar .cm-filter-input {
     height: 40px;
-  flex: 1 1 150px;   
-  min-width: 140px;  
+  width: 100%;      
+  min-width: 0;         
+  box-sizing: border-box;
   font-size: 13px;
+}
+.cm-filter-actions {
+  display: flex;
+  gap: 8px;
+}
+.cm-filter-actions .cm-btn:first-child {
+  flex: 1;
 }
 .cm-tab-navigation {
   display: flex;

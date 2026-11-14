@@ -940,7 +940,7 @@ function CaseManagement() {
           onChange={handleFilterChange}
           title="Date To"
         />
-
+<div className="cm-filter-actions">
         <button
           className="cm-btn cm-btn-primary"
           onClick={handleApplyFilters}
@@ -968,7 +968,7 @@ function CaseManagement() {
           ↺
         </button>
       </div>
-
+</div>
       {/* TABS */}
       <div className="cm-tab-navigation">
         {["all", "high", "unassigned"].map(

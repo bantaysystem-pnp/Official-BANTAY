@@ -333,14 +333,16 @@ body {
   padding: 16px 20px;
   margin-bottom: 20px;
   display: flex;
+  flex-wrap: wrap;  
   gap: 12px;
   align-items: center;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   border-left: 4px solid var(--navy-primary);
 }
 .cm-filter-bar .cm-filter-input {
-  height: 40px;
-  flex: 1;
+    height: 40px;
+  flex: 1 1 150px;   
+  min-width: 140px;  
   font-size: 13px;
 }
 .cm-tab-navigation {
@@ -847,8 +849,7 @@ input[type="date"].cm-filter-input::-webkit-calendar-picker-indicator {
     align-items: stretch;
     gap: 8px;
     padding: 14px 16px;
-  }
-  .cm-filter-bar .cm-filter-input { max-width: 100% !important; width: 100%; }
+  }.cm-filter-bar .cm-filter-input { max-width: 100% !important; width: 100%; flex: none; min-width: 0; }
   .cm-filter-bar > div:first-child { margin-right: 0; }
   .cm-filter-bar .cm-btn {
     width: 100%;

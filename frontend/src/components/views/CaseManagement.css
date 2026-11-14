@@ -349,7 +349,7 @@ body {
   .cm-filter-bar .cm-filter-input[name="search"]       { width: 150px; }
   .cm-filter-bar .cm-filter-input[name="status"]       { width: 160px; }
   .cm-filter-bar .cm-filter-input[name="priority"]     { width: 120px; }
-  .cm-filter-bar .cm-filter-input[name="sort_updated"] { width: 185px; }
+  .cm-filter-bar .cm-filter-input[name="sort_updated"] { width: 165px; }
   .cm-filter-bar .cm-filter-input[name="date_from"],
   .cm-filter-bar .cm-filter-input[name="date_to"]      { width: 135px; }
 }

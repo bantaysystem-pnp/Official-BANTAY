@@ -952,7 +952,7 @@ function CaseManagement() {
             boxShadow: isDirty ? "0 0 0 3px rgba(193,39,45,0.22)" : "none",
           }}
         >
-          Apply
+          Apply Filters
         </button>
         <button
           className="cm-btn cm-btn-secondary"

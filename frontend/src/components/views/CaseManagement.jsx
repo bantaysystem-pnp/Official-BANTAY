@@ -884,7 +884,6 @@ function CaseManagement() {
           className="cm-filter-input"
           placeholder="Search by Case No."
           name="search"
-          style={{ maxWidth: "140px" }}
           value={draftFilters.search || ""}
           onChange={handleFilterChange}
           autoComplete="off"
